@@ -14,7 +14,7 @@ function formatTime(dateStr) {
   return d.toLocaleDateString('ko-KR', { timeZone: TIME_ZONE, month: '2-digit', day: '2-digit' });
 }
 
-export default function ClusterListItem({ cluster, onToggleRead, onToggleBookmark, selected, onToggleSelect }) {
+export default function ClusterListItem({ cluster, onToggleRead, onToggleBookmark, onTogglePick, selected, onToggleSelect }) {
   const { primaryArticle, relatedArticles, keyword } = cluster;
   const sourceCount = 1 + relatedArticles.length;
 
@@ -47,6 +47,22 @@ export default function ClusterListItem({ cluster, onToggleRead, onToggleBookmar
       >
         {primaryArticle.isBookmarked ? '★' : '☆'}
       </button>
+
+      {onTogglePick && (
+        <button
+          onClick={() => onTogglePick(primaryArticle)}
+          aria-label={primaryArticle.isPicked ? 'Today News에서 빼기' : 'Today News에 담기'}
+          title={primaryArticle.isPicked ? 'Today News에서 빼기' : 'Today News에 담기'}
+          className={[
+            'shrink-0 text-[11px] leading-none cursor-pointer transition-colors rounded-full w-4 h-4 flex items-center justify-center border',
+            primaryArticle.isPicked
+              ? 'bg-(--color-signal-amber) border-(--color-signal-amber) text-(--color-paper)'
+              : 'border-(--color-ink-faint) text-(--color-ink-faint) hover:border-(--color-signal-amber) hover:text-(--color-signal-amber)',
+          ].join(' ')}
+        >
+          {primaryArticle.isPicked ? '✓' : '+'}
+        </button>
+      )}
 
       <span className="shrink-0 hidden sm:inline-block font-(family-name:--font-sans) text-[11px] font-semibold text-(--color-wire-blue) bg-(--color-wire-blue)/10 rounded px-1.5 py-0.5 max-w-24 truncate">
         {keyword}

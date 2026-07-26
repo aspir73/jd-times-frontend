@@ -21,6 +21,9 @@ export default function Sidebar({
   onEditFeedClick,
   open,
   onClose,
+  pageMode,
+  onSelectToday,
+  pickedCount,
 }) {
   const grouped = useMemo(() => groupFeedsByCategory(feeds), [feeds]);
   const [collapsed, setCollapsed] = useState({});
@@ -63,11 +66,28 @@ export default function Sidebar({
         </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-3">
+        {onSelectToday && (
+          <button
+            onClick={() => { onSelectToday(); onClose?.(); }}
+            className={[
+              'w-full flex items-center justify-between rounded px-3 py-2 text-sm cursor-pointer transition-colors mb-1',
+              pageMode === 'today'
+                ? 'bg-(--color-signal-amber) text-(--color-paper) font-semibold'
+                : 'text-(--color-ink) hover:bg-(--color-rule)/60',
+            ].join(' ')}
+          >
+            <span>🗞 Today News</span>
+            {pickedCount > 0 && (
+              <span className="font-(family-name:--font-mono) text-[11px]">{pickedCount}</span>
+            )}
+          </button>
+        )}
+
         <button
           onClick={() => { onSelect({ type: 'all' }); onClose?.(); }}
           className={[
             'w-full flex items-center justify-between rounded px-3 py-2 text-sm cursor-pointer transition-colors',
-            selected.type === 'all'
+            pageMode !== 'today' && selected.type === 'all'
               ? 'bg-(--color-ink) text-(--color-paper) font-semibold'
               : 'text-(--color-ink) hover:bg-(--color-rule)/60',
           ].join(' ')}
@@ -84,7 +104,7 @@ export default function Sidebar({
           {[...grouped.entries()].map(([category, categoryFeeds]) => {
             const isCollapsed = collapsed[category];
             const isSelectedCategory =
-              selected.type === 'category' && selected.value === category;
+              pageMode !== 'today' && selected.type === 'category' && selected.value === category;
             const unread = unreadByCategory?.[category] || 0;
 
             return (
@@ -128,7 +148,7 @@ export default function Sidebar({
                   <div className="ml-5 border-l border-(--color-rule) pl-2 mt-0.5 space-y-0.5">
                     {categoryFeeds.map((feed) => {
                       const isSelectedFeed =
-                        selected.type === 'feed' && selected.value === feed.id;
+                        pageMode !== 'today' && selected.type === 'feed' && selected.value === feed.id;
                       return (
                         <div key={feed.id} className="group flex items-center">
                           <button

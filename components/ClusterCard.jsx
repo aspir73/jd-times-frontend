@@ -37,7 +37,7 @@ function formatTime(dateStr) {
   });
 }
 
-function ArticleRow({ article, variant, onToggleRead, onToggleBookmark }) {
+function ArticleRow({ article, variant, onToggleRead, onToggleBookmark, onTogglePick }) {
   const isRelated = variant === 'related';
   return (
     <div
@@ -46,18 +46,35 @@ function ArticleRow({ article, variant, onToggleRead, onToggleBookmark }) {
         isRelated ? 'pl-5 border-l-2 border-(--color-rule)' : '',
       ].join(' ')}
     >
-      <button
-        onClick={() => onToggleBookmark(article)}
-        aria-label={article.isBookmarked ? '북마크 해제' : '북마크 추가'}
-        className={[
-          'mt-0.5 shrink-0 text-base leading-none cursor-pointer transition-colors',
-          article.isBookmarked
-            ? 'text-(--color-stamp-red)'
-            : 'text-(--color-ink-faint) hover:text-(--color-stamp-red)',
-        ].join(' ')}
-      >
-        {article.isBookmarked ? '★' : '☆'}
-      </button>
+      <div className="mt-0.5 flex flex-col items-center gap-1 shrink-0">
+        <button
+          onClick={() => onToggleBookmark(article)}
+          aria-label={article.isBookmarked ? '북마크 해제' : '북마크 추가'}
+          className={[
+            'text-base leading-none cursor-pointer transition-colors',
+            article.isBookmarked
+              ? 'text-(--color-stamp-red)'
+              : 'text-(--color-ink-faint) hover:text-(--color-stamp-red)',
+          ].join(' ')}
+        >
+          {article.isBookmarked ? '★' : '☆'}
+        </button>
+        {onTogglePick && (
+          <button
+            onClick={() => onTogglePick(article)}
+            aria-label={article.isPicked ? 'Today News에서 빼기' : 'Today News에 담기'}
+            title={article.isPicked ? 'Today News에서 빼기' : 'Today News에 담기'}
+            className={[
+              'text-[11px] leading-none cursor-pointer transition-colors rounded-full w-4 h-4 flex items-center justify-center border',
+              article.isPicked
+                ? 'bg-(--color-signal-amber) border-(--color-signal-amber) text-(--color-paper)'
+                : 'border-(--color-ink-faint) text-(--color-ink-faint) hover:border-(--color-signal-amber) hover:text-(--color-signal-amber)',
+            ].join(' ')}
+          >
+            {article.isPicked ? '✓' : '+'}
+          </button>
+        )}
+      </div>
 
       <a
         href={article.link}
@@ -90,7 +107,7 @@ function ArticleRow({ article, variant, onToggleRead, onToggleBookmark }) {
   );
 }
 
-export default function ClusterCard({ cluster, onToggleRead, onToggleBookmark, selected, onToggleSelect }) {
+export default function ClusterCard({ cluster, onToggleRead, onToggleBookmark, onTogglePick, selected, onToggleSelect }) {
   const [expanded, setExpanded] = useState(false);
   const { primaryArticle, relatedArticles, keyword } = cluster;
   const sourceCount = 1 + relatedArticles.length;
@@ -139,6 +156,7 @@ export default function ClusterCard({ cluster, onToggleRead, onToggleBookmark, s
         variant="primary"
         onToggleRead={onToggleRead}
         onToggleBookmark={onToggleBookmark}
+        onTogglePick={onTogglePick}
       />
 
       {relatedArticles.length > 0 && (
@@ -161,6 +179,7 @@ export default function ClusterCard({ cluster, onToggleRead, onToggleBookmark, s
                   variant="related"
                   onToggleRead={onToggleRead}
                   onToggleBookmark={onToggleBookmark}
+                  onTogglePick={onTogglePick}
                 />
               ))}
             </div>

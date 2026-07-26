@@ -8,6 +8,7 @@ import Toolbar from '@/components/Toolbar';
 import SelectionBar from '@/components/SelectionBar';
 import ClusterCard from '@/components/ClusterCard';
 import ClusterListItem from '@/components/ClusterListItem';
+import TodayNews from '@/components/TodayNews';
 import AddFeedModal from '@/components/AddFeedModal';
 import EditFeedModal from '@/components/EditFeedModal';
 import {
@@ -18,6 +19,8 @@ import {
   deleteFeed,
   setArticleStatus,
   bulkSetArticleStatus,
+  addPick,
+  removePick,
 } from '@/lib/api';
 
 const VIEW_MODE_KEY = 'jdtimes:viewMode';
@@ -35,6 +38,7 @@ export default function Home() {
   const [lastUpdated, setLastUpdated] = useState(null);
 
   const [selected, setSelected] = useState({ type: 'all' });
+  const [pageMode, setPageMode] = useState('browse'); // 'browse' | 'today'
   const [activeFilter, setActiveFilter] = useState('ALL');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -201,6 +205,54 @@ export default function Home() {
     [updateArticleInState]
   );
 
+  // --- Today News "Pick" ---
+  const handleTogglePick = useCallback(
+    async (article) => {
+      const next = !article.isPicked;
+      updateArticleInState(article.articleId, { isPicked: next });
+      try {
+        if (next) {
+          await addPick({
+            articleId: article.articleId,
+            title: article.title,
+            link: article.link,
+            source: article.source,
+            category: article.category,
+            pubDate: article.pubDate,
+          });
+        } else {
+          await removePick(article.articleId);
+        }
+      } catch {
+        updateArticleInState(article.articleId, { isPicked: !next }); // 실패 시 롤백
+      }
+    },
+    [updateArticleInState]
+  );
+
+  // Today News 화면 내에서 빼기 — 브라우즈 화면의 핀 상태도 함께 동기화
+  const handleRemovePickById = useCallback(
+    async (articleId) => {
+      updateArticleInState(articleId, { isPicked: false });
+      try {
+        await removePick(articleId);
+      } catch {
+        updateArticleInState(articleId, { isPicked: true });
+      }
+    },
+    [updateArticleInState]
+  );
+
+  const pickedCount = useMemo(
+    () => clusters.reduce((sum, c) => sum + flattenArticles(c).filter((a) => a.isPicked).length, 0),
+    [clusters]
+  );
+
+  const handleSidebarSelect = useCallback((sel) => {
+    setPageMode('browse');
+    setSelected(sel);
+  }, []);
+
   // --- 선택(체크박스) & 일괄 읽음/읽지 않음 처리 ---
   const handleToggleSelect = useCallback((cluster) => {
     setSelectedIds((prev) => {
@@ -305,11 +357,14 @@ export default function Home() {
         feeds={feeds}
         unreadByCategory={unreadByCategory}
         selected={selected}
-        onSelect={setSelected}
+        onSelect={handleSidebarSelect}
         onAddFeedClick={() => setModalOpen(true)}
         onEditFeedClick={setEditingFeed}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
+        pageMode={pageMode}
+        onSelectToday={() => setPageMode('today')}
+        pickedCount={pickedCount}
       />
 
       <main className="flex-1 min-w-0">
@@ -323,14 +378,18 @@ export default function Home() {
               ☰
             </button>
             <h2 className="font-(family-name:--font-display) text-2xl font-bold truncate">
-              {scopeLabel}
+              {pageMode === 'today' ? 'Today News' : scopeLabel}
             </h2>
           </div>
           <span className="shrink-0 font-(family-name:--font-mono) text-xs text-(--color-ink-faint)">
-            {visibleClusters.length}건 표시 중
+            {pageMode === 'today' ? `Pick ${pickedCount}건` : `${visibleClusters.length}건 표시 중`}
           </span>
         </header>
 
+        {pageMode === 'today' ? (
+          <TodayNews viewMode={viewMode} onViewModeChange={setViewMode} onRemovePick={handleRemovePickById} />
+        ) : (
+        <>
         <Toolbar
           onRefresh={() => loadData(true)}
           refreshing={refreshing}
@@ -417,6 +476,7 @@ export default function Home() {
                     cluster={cluster}
                     onToggleRead={handleToggleRead}
                     onToggleBookmark={handleToggleBookmark}
+                    onTogglePick={handleTogglePick}
                     selected={selectedIds.has(cluster.clusterId)}
                     onToggleSelect={handleToggleSelect}
                   />
@@ -429,12 +489,15 @@ export default function Home() {
                   cluster={cluster}
                   onToggleRead={handleToggleRead}
                   onToggleBookmark={handleToggleBookmark}
+                  onTogglePick={handleTogglePick}
                   selected={selectedIds.has(cluster.clusterId)}
                   onToggleSelect={handleToggleSelect}
                 />
               ))
             ))}
         </div>
+        </>
+        )}
       </main>
 
       <AddFeedModal
