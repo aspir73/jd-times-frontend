@@ -218,6 +218,7 @@ export default function Home() {
             link: article.link,
             source: article.source,
             category: article.category,
+            feedTitle: article.feedTitle,
             pubDate: article.pubDate,
           });
         } else {

@@ -30,10 +30,10 @@ function formatDayLabel(dateKey) {
 }
 
 /** 예시 포맷대로 순수 텍스트 다이제스트 생성 */
-function formatDigestText(dateKey, categoryEntries) {
+function formatDigestText(dateKey, feedEntries) {
   const lines = [`□ Today's JD Times (${formatDayLabel(dateKey)})`];
-  for (const [category, articles] of categoryEntries) {
-    lines.push(`【${category}】`);
+  for (const [feedTitle, articles] of feedEntries) {
+    lines.push(`【${feedTitle}】`);
     for (const a of articles) {
       lines.push(a.title);
       lines.push(a.link);
@@ -67,16 +67,16 @@ export default function TodayNews({ viewMode, onViewModeChange, onRemovePick }) 
     load(period);
   }, [period, load]);
 
-  // 날짜별 → 카테고리별로 그룹핑 (최신 날짜가 위로)
+  // 날짜별 → 피드 이름별로 그룹핑 (최신 날짜가 위로)
   const groupedByDay = useMemo(() => {
     const byDay = new Map();
     for (const p of picks) {
       const dateKey = dateKeyFor(p.picked_at);
       if (!byDay.has(dateKey)) byDay.set(dateKey, new Map());
-      const byCat = byDay.get(dateKey);
-      const cat = p.category || '일반';
-      if (!byCat.has(cat)) byCat.set(cat, []);
-      byCat.get(cat).push(p);
+      const byFeed = byDay.get(dateKey);
+      const feedTitle = p.feed_title || p.source || '일반';
+      if (!byFeed.has(feedTitle)) byFeed.set(feedTitle, []);
+      byFeed.get(feedTitle).push(p);
     }
     return [...byDay.entries()].sort((a, b) => b[0].localeCompare(a[0]));
   }, [picks]);
@@ -189,10 +189,10 @@ export default function TodayNews({ viewMode, onViewModeChange, onRemovePick }) 
               </div>
 
               <div className={viewMode === 'list' ? 'px-5 py-3 space-y-4' : 'px-5 py-4 space-y-5'}>
-                {[...catMap.entries()].map(([category, articles]) => (
-                  <div key={category}>
+                {[...catMap.entries()].map(([feedTitle, articles]) => (
+                  <div key={feedTitle}>
                     <p className="font-(family-name:--font-sans) text-xs font-semibold text-(--color-wire-blue) mb-2">
-                      【{category}】
+                      【{feedTitle}】
                     </p>
 
                     {viewMode === 'list' ? (
