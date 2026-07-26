@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+:root {
+  /* --- Color tokens: 페이퍼 톤 + 잉크 + 와이어서비스 액센트 --- */
+  --color-paper: #eceeea;
+  --color-paper-raised: #f6f7f4;
+  --color-ink: #1c232e;
+  --color-ink-soft: #5b6472;
+  --color-ink-faint: #9aa2ac;
+  --color-wire-blue: #2955a3;
+  --color-signal-amber: #c98a2b;
+  --color-stamp-red: #a63d33;
+  --color-rule: #d7d9d3;
+
+  /* --- Type tokens --- */
+  --font-display: 'Source Serif 4', 'Noto Serif KR', Georgia, serif;
+  --font-sans: 'Pretendard', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+@theme inline {
+  --color-paper: var(--color-paper);
+  --color-paper-raised: var(--color-paper-raised);
+  --color-ink: var(--color-ink);
+  --color-ink-soft: var(--color-ink-soft);
+  --color-ink-faint: var(--color-ink-faint);
+  --color-wire-blue: var(--color-wire-blue);
+  --color-signal-amber: var(--color-signal-amber);
+  --color-stamp-red: var(--color-stamp-red);
+  --color-rule: var(--color-rule);
+
+  --font-display: var(--font-display);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--color-signal-amber);
+  color: var(--color-paper);
+}
+
+/* 포커스 링: 키보드 접근성 */
+:focus-visible {
+  outline: 2px solid var(--color-wire-blue);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* 아코디언 펼침 애니메이션 */
+@keyframes accordion-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.accordion-enter {
+  animation: accordion-in 0.16s ease-out;
+}
