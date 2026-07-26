@@ -21,6 +21,7 @@ import {
   bulkSetArticleStatus,
   addPick,
   removePick,
+  getPicks,
 } from '@/lib/api';
 
 const VIEW_MODE_KEY = 'jdtimes:viewMode';
@@ -43,7 +44,7 @@ export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [query, setQuery] = useState('');
-  const [period, setPeriod] = useState('ALL');
+  const [period, setPeriod] = useState('168'); // 기본 표시 기간: 7일
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [feedFilter, setFeedFilter] = useState('ALL');
 
@@ -67,24 +68,32 @@ export default function Home() {
     window.localStorage.setItem(VIEW_MODE_KEY, viewMode);
   }, [viewMode]);
 
-  const loadData = useCallback(async (force = false) => {
-    force ? setRefreshing(true) : setLoading(true);
-    setLoadError('');
-    try {
-      const [feedList, rssData] = await Promise.all([getFeeds(), getClusters({ force })]);
-      setFeeds(feedList);
-      setClusters(rssData.clusters || []);
-      setLastUpdated(rssData.fetchedAt || new Date().toISOString());
-    } catch (err) {
-      setLoadError(err.message || '데이터를 불러오지 못했습니다.');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, []);
+  const loadData = useCallback(
+    async (force = false) => {
+      force ? setRefreshing(true) : setLoading(true);
+      setLoadError('');
+      try {
+        const hoursForBackend = period === 'ALL' ? 'all' : period;
+        const [feedList, rssData] = await Promise.all([
+          getFeeds(),
+          getClusters({ force, hours: hoursForBackend }),
+        ]);
+        setFeeds(feedList);
+        setClusters(rssData.clusters || []);
+        setLastUpdated(rssData.fetchedAt || new Date().toISOString());
+      } catch (err) {
+        setLoadError(err.message || '데이터를 불러오지 못했습니다.');
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [period]
+  );
 
+  // 최초 로드 + 기간(period) 탭이 바뀔 때마다 서버에 다시 조회 (서버가 아카이브까지 포함해 그 기간만큼만 응답)
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 시 최초 데이터 로드
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 시 및 기간 변경 시 재조회
     loadData(false);
   }, [loadData]);
 
@@ -122,34 +131,28 @@ export default function Home() {
     if (feedFilter !== 'ALL') {
       list = list.filter((c) => String(c.primaryArticle.feedId) === feedFilter);
     }
-    if (period !== 'ALL') {
-      const hours = Number(period);
-      // eslint-disable-next-line react-hooks/purity -- 클라이언트 전용 필터 계산, 렌더마다 최신 시각 기준으로 다시 걸러내는 것이 의도된 동작
-      const cutoff = Date.now() - hours * 60 * 60 * 1000;
-      list = list.filter((c) => {
-        const t = new Date(c.primaryArticle.pubDate).getTime();
-        return !Number.isNaN(t) && t >= cutoff;
-      });
-    }
+    // 기간(period) 필터는 백엔드가 이미 적용해서 응답하므로 여기서는 다시 거르지 않음
     if (query.trim()) {
       const q = query.trim().toLowerCase();
       list = list.filter((c) => flattenArticles(c).some((a) => a.title.toLowerCase().includes(q)));
     }
 
     return list;
-  }, [scopedClusters, categoryFilter, feedFilter, period, query]);
+  }, [scopedClusters, categoryFilter, feedFilter, query]);
 
   // 3) 필터 탭(전체/읽지않음/읽음/북마크) 카운트 — 검색 필터 적용된 범위 기준
   const tabCounts = useMemo(() => {
     let unread = 0;
     let read = 0;
     let bookmark = 0;
+    let picked = 0;
     for (const c of searchFilteredClusters) {
       if (c.primaryArticle.isRead) read += 1;
       else unread += 1;
       if (flattenArticles(c).some((a) => a.isBookmarked)) bookmark += 1;
+      if (flattenArticles(c).some((a) => a.isPicked)) picked += 1;
     }
-    return { ALL: searchFilteredClusters.length, UNREAD: unread, READ: read, BOOKMARK: bookmark };
+    return { ALL: searchFilteredClusters.length, UNREAD: unread, READ: read, PICK: picked, BOOKMARK: bookmark };
   }, [searchFilteredClusters]);
 
   // 4) 필터 탭까지 최종 적용된, 실제로 화면에 보여줄 목록
@@ -159,6 +162,8 @@ export default function Home() {
         return searchFilteredClusters.filter((c) => !c.primaryArticle.isRead);
       case 'READ':
         return searchFilteredClusters.filter((c) => c.primaryArticle.isRead);
+      case 'PICK':
+        return searchFilteredClusters.filter((c) => flattenArticles(c).some((a) => a.isPicked));
       case 'BOOKMARK':
         return searchFilteredClusters.filter((c) => flattenArticles(c).some((a) => a.isBookmarked));
       default:
@@ -206,10 +211,54 @@ export default function Home() {
   );
 
   // --- Today News "Pick" ---
+  const [picks, setPicks] = useState([]);
+  const [pickPeriod, setPickPeriod] = useState('today');
+  const [picksLoading, setPicksLoading] = useState(false);
+  const [picksError, setPicksError] = useState('');
+
+  const loadPicks = useCallback(async (p) => {
+    setPicksLoading(true);
+    setPicksError('');
+    try {
+      const data = await getPicks(p);
+      setPicks(data);
+    } catch (err) {
+      setPicksError(err.message || 'Pick한 기사를 불러오지 못했습니다.');
+    } finally {
+      setPicksLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (pageMode !== 'today') return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Today News 진입 또는 기간 탭 변경 시 재조회
+    loadPicks(pickPeriod);
+  }, [pageMode, pickPeriod, loadPicks]);
+
   const handleTogglePick = useCallback(
     async (article) => {
       const next = !article.isPicked;
       updateArticleInState(article.articleId, { isPicked: next });
+
+      if (next) {
+        // Today News 목록에도 즉시 반영 (브라우즈 화면에서 Pick하자마자 나타나도록)
+        setPicks((prev) => [
+          {
+            article_id: article.articleId,
+            title: article.title,
+            link: article.link,
+            source: article.source,
+            category: article.category,
+            feed_title: article.feedTitle,
+            pub_date: article.pubDate,
+            picked_at: new Date().toISOString(),
+          },
+          ...prev.filter((p) => p.article_id !== article.articleId),
+        ]);
+      } else {
+        setPicks((prev) => prev.filter((p) => p.article_id !== article.articleId));
+      }
+
       try {
         if (next) {
           await addPick({
@@ -226,22 +275,25 @@ export default function Home() {
         }
       } catch {
         updateArticleInState(article.articleId, { isPicked: !next }); // 실패 시 롤백
+        loadPicks(pickPeriod); // Today News 쪽도 서버 상태로 재동기화
       }
     },
-    [updateArticleInState]
+    [updateArticleInState, loadPicks, pickPeriod]
   );
 
-  // Today News 화면 내에서 빼기 — 브라우즈 화면의 핀 상태도 함께 동기화
+  // Today News 화면 내에서 ✕로 빼기 — 브라우즈 화면의 Pick 버튼 상태도 함께 동기화
   const handleRemovePickById = useCallback(
     async (articleId) => {
+      setPicks((prev) => prev.filter((p) => p.article_id !== articleId));
       updateArticleInState(articleId, { isPicked: false });
       try {
         await removePick(articleId);
       } catch {
         updateArticleInState(articleId, { isPicked: true });
+        loadPicks(pickPeriod);
       }
     },
-    [updateArticleInState]
+    [updateArticleInState, loadPicks, pickPeriod]
   );
 
   const pickedCount = useMemo(
@@ -388,7 +440,16 @@ export default function Home() {
         </header>
 
         {pageMode === 'today' ? (
-          <TodayNews viewMode={viewMode} onViewModeChange={setViewMode} onRemovePick={handleRemovePickById} />
+          <TodayNews
+            picks={picks}
+            loading={picksLoading}
+            error={picksError}
+            period={pickPeriod}
+            onPeriodChange={setPickPeriod}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+            onRemovePick={handleRemovePickById}
+          />
         ) : (
         <>
         <Toolbar

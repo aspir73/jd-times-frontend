@@ -1,7 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useCallback } from 'react';
-import { getPicks } from '@/lib/api';
+import { useMemo, useState, useCallback } from 'react';
 
 const TIME_ZONE = 'Asia/Seoul';
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -42,30 +41,17 @@ function formatDigestText(dateKey, feedEntries) {
   return lines.join('\n');
 }
 
-export default function TodayNews({ viewMode, onViewModeChange, onRemovePick }) {
-  const [period, setPeriod] = useState('today');
-  const [picks, setPicks] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+export default function TodayNews({
+  picks,
+  loading,
+  error,
+  period,
+  onPeriodChange,
+  viewMode,
+  onViewModeChange,
+  onRemovePick,
+}) {
   const [copiedKey, setCopiedKey] = useState(null);
-
-  const load = useCallback(async (p) => {
-    setLoading(true);
-    setError('');
-    try {
-      const data = await getPicks(p);
-      setPicks(data);
-    } catch (err) {
-      setError(err.message || 'Pick한 기사를 불러오지 못했습니다.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- 기간 탭 변경 시 재조회
-    load(period);
-  }, [period, load]);
 
   // 날짜별 → 피드 이름별로 그룹핑 (최신 날짜가 위로)
   const groupedByDay = useMemo(() => {
@@ -82,9 +68,8 @@ export default function TodayNews({ viewMode, onViewModeChange, onRemovePick }) 
   }, [picks]);
 
   const handleRemove = useCallback(
-    async (articleId) => {
-      setPicks((prev) => prev.filter((p) => p.article_id !== articleId));
-      await onRemovePick?.(articleId);
+    (articleId) => {
+      onRemovePick?.(articleId);
     },
     [onRemovePick]
   );
@@ -107,7 +92,7 @@ export default function TodayNews({ viewMode, onViewModeChange, onRemovePick }) 
           {PERIOD_TABS.map((tab) => (
             <button
               key={tab.key}
-              onClick={() => setPeriod(tab.key)}
+              onClick={() => onPeriodChange(tab.key)}
               className={[
                 'px-3 py-1 text-xs rounded cursor-pointer transition-colors',
                 period === tab.key
