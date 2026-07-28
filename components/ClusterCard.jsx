@@ -1,9 +1,11 @@
 'use client';
 
 import { useState } from 'react';
+import { RibbonIcon } from './icons';
 
 const TIME_ZONE = 'Asia/Seoul';
 
+/** 폴백: 서버가 pubDateDisplay를 안 내려준 옛날 캐시 데이터 대비 */
 function formatTime(dateStr) {
   if (!dateStr) return '';
   const d = new Date(dateStr);
@@ -37,6 +39,11 @@ function formatTime(dateStr) {
   });
 }
 
+/** 서버가 미리 계산해 내려준 한국시간 표시 문자열을 그대로 사용 (브라우저 시간대와 무관하게 항상 동일) */
+function displayTime(article) {
+  return article.pubDateDisplay || formatTime(article.pubDate);
+}
+
 function ArticleRow({ article, variant, onToggleRead, onToggleBookmark, onTogglePick }) {
   const isRelated = variant === 'related';
   return (
@@ -51,13 +58,13 @@ function ArticleRow({ article, variant, onToggleRead, onToggleBookmark, onToggle
           onClick={() => onToggleBookmark(article)}
           aria-label={article.isBookmarked ? '북마크 해제' : '북마크 추가'}
           className={[
-            'text-base leading-none cursor-pointer transition-colors',
+            'text-base leading-none cursor-pointer transition-colors p-0.5',
             article.isBookmarked
               ? 'text-(--color-stamp-red)'
               : 'text-(--color-ink-faint) hover:text-(--color-stamp-red)',
           ].join(' ')}
         >
-          {article.isBookmarked ? '★' : '☆'}
+          <RibbonIcon filled={article.isBookmarked} />
         </button>
         {onTogglePick && (
           <button
@@ -71,7 +78,7 @@ function ArticleRow({ article, variant, onToggleRead, onToggleBookmark, onToggle
                 : 'text-(--color-ink-faint) hover:text-(--color-signal-amber)',
             ].join(' ')}
           >
-            {article.isPicked ? '☑' : '☐'}
+            {article.isPicked ? '★' : '☆'}
           </button>
         )}
       </div>
@@ -95,7 +102,7 @@ function ArticleRow({ article, variant, onToggleRead, onToggleBookmark, onToggle
           {article.title}
         </p>
         <p className="mt-1 font-(family-name:--font-mono) text-xs text-(--color-ink-faint)">
-          {article.source} · {formatTime(article.pubDate)}
+          {article.source} · {displayTime(article)}
         </p>
         {article.isBookmarked && article.summary && (
           <p className="mt-1 text-xs text-(--color-ink-soft) leading-relaxed line-clamp-3 max-w-prose">
@@ -147,7 +154,7 @@ export default function ClusterCard({ cluster, onToggleRead, onToggleBookmark, o
         )}
 
         <span className="ml-auto font-(family-name:--font-mono) text-xs text-(--color-ink-faint)">
-          {formatTime(primaryArticle.pubDate)}
+          {displayTime(primaryArticle)}
         </span>
       </div>
 

@@ -1,7 +1,10 @@
 'use client';
 
+import { RibbonIcon } from './icons';
+
 const TIME_ZONE = 'Asia/Seoul';
 
+/** 폴백: 서버가 pubDateDisplay를 안 내려준 옛날 캐시 데이터 대비 */
 function formatTime(dateStr) {
   if (!dateStr) return '';
   const d = new Date(dateStr);
@@ -12,6 +15,11 @@ function formatTime(dateStr) {
     return d.toLocaleTimeString('ko-KR', { timeZone: TIME_ZONE, hour: '2-digit', minute: '2-digit', hour12: false });
   }
   return d.toLocaleDateString('ko-KR', { timeZone: TIME_ZONE, month: '2-digit', day: '2-digit' });
+}
+
+/** 서버가 미리 계산해 내려준 한국시간 표시 문자열을 그대로 사용 */
+function displayTime(article) {
+  return article.pubDateDisplay || formatTime(article.pubDate);
 }
 
 export default function ClusterListItem({ cluster, onToggleRead, onToggleBookmark, onTogglePick, selected, onToggleSelect }) {
@@ -39,13 +47,13 @@ export default function ClusterListItem({ cluster, onToggleRead, onToggleBookmar
         onClick={() => onToggleBookmark(primaryArticle)}
         aria-label={primaryArticle.isBookmarked ? '북마크 해제' : '북마크 추가'}
         className={[
-          'shrink-0 text-base leading-none cursor-pointer transition-colors',
+          'shrink-0 text-base leading-none cursor-pointer transition-colors p-0.5',
           primaryArticle.isBookmarked
             ? 'text-(--color-stamp-red)'
             : 'text-(--color-ink-faint) hover:text-(--color-stamp-red)',
         ].join(' ')}
       >
-        {primaryArticle.isBookmarked ? '★' : '☆'}
+        <RibbonIcon filled={primaryArticle.isBookmarked} />
       </button>
 
       {onTogglePick && (
@@ -60,7 +68,7 @@ export default function ClusterListItem({ cluster, onToggleRead, onToggleBookmar
               : 'text-(--color-ink-faint) hover:text-(--color-signal-amber)',
           ].join(' ')}
         >
-          {primaryArticle.isPicked ? '☑' : '☐'}
+          {primaryArticle.isPicked ? '★' : '☆'}
         </button>
       )}
 
@@ -92,7 +100,7 @@ export default function ClusterListItem({ cluster, onToggleRead, onToggleBookmar
       </a>
 
       <span className="shrink-0 font-(family-name:--font-mono) text-[11px] text-(--color-ink-faint)">
-        {formatTime(primaryArticle.pubDate)}
+        {displayTime(primaryArticle)}
       </span>
     </div>
   );

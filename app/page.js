@@ -44,7 +44,7 @@ export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [query, setQuery] = useState('');
-  const [period, setPeriod] = useState('168'); // 기본 표시 기간: 7일
+  const [period, setPeriod] = useState('72'); // 기본 표시 기간: 3일
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [feedFilter, setFeedFilter] = useState('ALL');
 
