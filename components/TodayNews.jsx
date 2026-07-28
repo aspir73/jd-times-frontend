@@ -1,25 +1,16 @@
 'use client';
 
 import { useMemo, useState, useCallback } from 'react';
+import { computeDigestDate, addDaysToDateKey } from '@/lib/digestDate';
 
-const TIME_ZONE = 'Asia/Seoul';
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 const PERIOD_TABS = [
   { key: 'today', label: '오늘' },
   { key: 'week', label: '주간' },
   { key: 'month', label: '월간' },
 ];
-
-/** Asia/Seoul 기준 'YYYY-MM-DD' 키 */
-function dateKeyFor(dateInput) {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: TIME_ZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(new Date(dateInput));
-}
 
 /** '2026-07-27' → '2026.7.27.월' */
 function formatDayLabel(dateKey) {
@@ -52,20 +43,53 @@ export default function TodayNews({
   onRemovePick,
 }) {
   const [copiedKey, setCopiedKey] = useState(null);
+  const [query, setQuery] = useState('');
 
-  // 날짜별 → 피드 이름별로 그룹핑 (최신 날짜가 위로)
+  const isDateMode = DATE_RE.test(period);
+
+  // 스크랩마다 다이제스트 날짜 부여 (서버에 이미 있으면 그대로, 없으면 옛 데이터 대비 계산)
+  const picksWithDigest = useMemo(
+    () => picks.map((p) => ({ ...p, digestDate: p.digest_date || computeDigestDate(p.picked_at) })),
+    [picks]
+  );
+
+  // 기간(오늘/주간/월간/특정 날짜) 필터
+  const periodFiltered = useMemo(() => {
+    if (isDateMode) {
+      return picksWithDigest.filter((p) => p.digestDate === period);
+    }
+    const todayDigest = computeDigestDate(new Date().toISOString());
+    if (period === 'week') {
+      const start = addDaysToDateKey(todayDigest, -7);
+      return picksWithDigest.filter((p) => p.digestDate >= start && p.digestDate <= todayDigest);
+    }
+    if (period === 'month') {
+      const start = addDaysToDateKey(todayDigest, -31);
+      return picksWithDigest.filter((p) => p.digestDate >= start && p.digestDate <= todayDigest);
+    }
+    // 'today'
+    return picksWithDigest.filter((p) => p.digestDate === todayDigest);
+  }, [picksWithDigest, period, isDateMode]);
+
+  // 키워드 검색 (선택된 기간 범위 안에서)
+  const searched = useMemo(() => {
+    if (!query.trim()) return periodFiltered;
+    const q = query.trim().toLowerCase();
+    return periodFiltered.filter((p) => (p.title || '').toLowerCase().includes(q));
+  }, [periodFiltered, query]);
+
+  // 다이제스트 날짜별 → 피드 이름별로 그룹핑 (최신 날짜가 위로)
   const groupedByDay = useMemo(() => {
     const byDay = new Map();
-    for (const p of picks) {
-      const dateKey = dateKeyFor(p.picked_at);
-      if (!byDay.has(dateKey)) byDay.set(dateKey, new Map());
-      const byFeed = byDay.get(dateKey);
+    for (const p of searched) {
+      if (!byDay.has(p.digestDate)) byDay.set(p.digestDate, new Map());
+      const byFeed = byDay.get(p.digestDate);
       const feedTitle = p.feed_title || p.source || '일반';
       if (!byFeed.has(feedTitle)) byFeed.set(feedTitle, []);
       byFeed.get(feedTitle).push(p);
     }
     return [...byDay.entries()].sort((a, b) => b[0].localeCompare(a[0]));
-  }, [picks]);
+  }, [searched]);
 
   const handleRemove = useCallback(
     (articleId) => {
@@ -74,8 +98,8 @@ export default function TodayNews({
     [onRemovePick]
   );
 
-  const handleCopy = useCallback(async (dateKey, catMap) => {
-    const text = formatDigestText(dateKey, [...catMap.entries()]);
+  const handleCopy = useCallback(async (dateKey, feedMap) => {
+    const text = formatDigestText(dateKey, [...feedMap.entries()]);
     try {
       await navigator.clipboard.writeText(text);
       setCopiedKey(dateKey);
@@ -95,7 +119,7 @@ export default function TodayNews({
               onClick={() => onPeriodChange(tab.key)}
               className={[
                 'px-3 py-1 text-xs rounded cursor-pointer transition-colors',
-                period === tab.key
+                !isDateMode && period === tab.key
                   ? 'bg-(--color-ink) text-(--color-paper)'
                   : 'text-(--color-ink-soft) hover:text-(--color-ink)',
               ].join(' ')}
@@ -105,7 +129,37 @@ export default function TodayNews({
           ))}
         </div>
 
-        <div className="ml-auto flex items-center gap-1 rounded border border-(--color-rule) p-0.5">
+        {/* 날짜 지정 (달력) — 고르면 위 오늘/주간/월간 탭 대신 그 날짜만 표시 */}
+        <input
+          type="date"
+          value={isDateMode ? period : ''}
+          onChange={(e) => {
+            if (e.target.value) onPeriodChange(e.target.value);
+          }}
+          className={[
+            'rounded border px-2 py-1 text-xs cursor-pointer',
+            isDateMode
+              ? 'border-(--color-wire-blue) text-(--color-wire-blue) font-medium'
+              : 'border-(--color-rule) text-(--color-ink-soft)',
+          ].join(' ')}
+        />
+        {isDateMode && (
+          <button
+            onClick={() => onPeriodChange('today')}
+            className="text-xs text-(--color-ink-faint) hover:text-(--color-ink) cursor-pointer"
+          >
+            날짜 지정 해제
+          </button>
+        )}
+
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="스크랩한 기사 검색…"
+          className="min-w-[140px] flex-1 rounded border border-(--color-rule) px-3 py-1 text-xs bg-(--color-paper-raised) focus:border-(--color-wire-blue)"
+        />
+
+        <div className="flex items-center gap-1 rounded border border-(--color-rule) p-0.5">
           <button
             onClick={() => onViewModeChange('card')}
             className={[
@@ -145,18 +199,20 @@ export default function TodayNews({
         {!loading && !error && groupedByDay.length === 0 && (
           <div className="text-center py-16">
             <p className="font-(family-name:--font-display) text-lg mb-1">
-              아직 담긴 기사가 없습니다
+              {query.trim() ? '검색 결과가 없습니다' : '아직 스크랩한 기사가 없습니다'}
             </p>
-            <p className="text-sm text-(--color-ink-soft)">
-              기사 옆의 <span className="font-(family-name:--font-mono)">+</span> 버튼을 눌러
-              Today News에 담아보세요.
-            </p>
+            {!query.trim() && (
+              <p className="text-sm text-(--color-ink-soft)">
+                기사 옆의 <span className="font-(family-name:--font-mono)">☐</span> 버튼을 눌러
+                스크랩해보세요.
+              </p>
+            )}
           </div>
         )}
 
         {!loading &&
           !error &&
-          groupedByDay.map(([dateKey, catMap]) => (
+          groupedByDay.map(([dateKey, feedMap]) => (
             <section
               key={dateKey}
               className="rounded-lg border border-(--color-rule) bg-(--color-paper-raised) overflow-hidden"
@@ -166,7 +222,7 @@ export default function TodayNews({
                   □ Today&apos;s JD Times ({formatDayLabel(dateKey)})
                 </h3>
                 <button
-                  onClick={() => handleCopy(dateKey, catMap)}
+                  onClick={() => handleCopy(dateKey, feedMap)}
                   className="shrink-0 rounded border border-(--color-rule) px-3 py-1 text-xs font-medium text-(--color-ink) hover:border-(--color-wire-blue) hover:text-(--color-wire-blue) transition-colors cursor-pointer"
                 >
                   {copiedKey === dateKey ? '복사됨 ✓' : '📋 메시지로 복사'}
@@ -174,7 +230,7 @@ export default function TodayNews({
               </div>
 
               <div className={viewMode === 'list' ? 'px-5 py-3 space-y-4' : 'px-5 py-4 space-y-5'}>
-                {[...catMap.entries()].map(([feedTitle, articles]) => (
+                {[...feedMap.entries()].map(([feedTitle, articles]) => (
                   <div key={feedTitle}>
                     <p className="font-(family-name:--font-sans) text-xs font-semibold text-(--color-wire-blue) mb-2">
                       【{feedTitle}】
@@ -186,7 +242,7 @@ export default function TodayNews({
                           <li key={a.article_id} className="flex items-start gap-2 text-sm">
                             <button
                               onClick={() => handleRemove(a.article_id)}
-                              aria-label="Today News에서 빼기"
+                              aria-label="스크랩 해제"
                               className="mt-0.5 shrink-0 text-(--color-ink-faint) hover:text-(--color-stamp-red) cursor-pointer text-xs"
                             >
                               ✕
@@ -208,7 +264,7 @@ export default function TodayNews({
                           <div key={a.article_id} className="flex items-start gap-2">
                             <button
                               onClick={() => handleRemove(a.article_id)}
-                              aria-label="Today News에서 빼기"
+                              aria-label="스크랩 해제"
                               className="mt-0.5 shrink-0 text-(--color-ink-faint) hover:text-(--color-stamp-red) cursor-pointer text-sm"
                             >
                               ✕

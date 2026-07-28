@@ -51,16 +51,16 @@ export default function ClusterListItem({ cluster, onToggleRead, onToggleBookmar
       {onTogglePick && (
         <button
           onClick={() => onTogglePick(primaryArticle)}
-          aria-label={primaryArticle.isPicked ? 'Today News에서 빼기' : 'Today News에 담기'}
-          title={primaryArticle.isPicked ? 'Today News에서 빼기' : 'Today News에 담기'}
+          aria-label={primaryArticle.isPicked ? '스크랩 해제' : '스크랩하기'}
+          title={primaryArticle.isPicked ? '스크랩 해제' : '스크랩하기 (Today News에 담기)'}
           className={[
-            'shrink-0 text-[11px] leading-none cursor-pointer transition-colors rounded-full w-4 h-4 flex items-center justify-center border',
+            'shrink-0 text-base leading-none cursor-pointer transition-colors p-0.5',
             primaryArticle.isPicked
-              ? 'bg-(--color-signal-amber) border-(--color-signal-amber) text-(--color-paper)'
-              : 'border-(--color-ink-faint) text-(--color-ink-faint) hover:border-(--color-signal-amber) hover:text-(--color-signal-amber)',
+              ? 'text-(--color-signal-amber)'
+              : 'text-(--color-ink-faint) hover:text-(--color-signal-amber)',
           ].join(' ')}
         >
-          {primaryArticle.isPicked ? '✓' : '+'}
+          {primaryArticle.isPicked ? '☑' : '☐'}
         </button>
       )}
 

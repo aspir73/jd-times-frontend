@@ -210,20 +210,20 @@ export default function Home() {
     [updateArticleInState]
   );
 
-  // --- Today News "Pick" ---
+  // --- Today News "스크랩" ---
   const [picks, setPicks] = useState([]);
   const [pickPeriod, setPickPeriod] = useState('today');
   const [picksLoading, setPicksLoading] = useState(false);
   const [picksError, setPicksError] = useState('');
 
-  const loadPicks = useCallback(async (p) => {
+  const loadPicks = useCallback(async () => {
     setPicksLoading(true);
     setPicksError('');
     try {
-      const data = await getPicks(p);
+      const data = await getPicks();
       setPicks(data);
     } catch (err) {
-      setPicksError(err.message || 'Pick한 기사를 불러오지 못했습니다.');
+      setPicksError(err.message || '스크랩한 기사를 불러오지 못했습니다.');
     } finally {
       setPicksLoading(false);
     }
@@ -231,9 +231,9 @@ export default function Home() {
 
   useEffect(() => {
     if (pageMode !== 'today') return;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Today News 진입 또는 기간 탭 변경 시 재조회
-    loadPicks(pickPeriod);
-  }, [pageMode, pickPeriod, loadPicks]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Today News 진입 시 전체 조회 (기간/날짜 필터는 클라이언트에서 처리)
+    loadPicks();
+  }, [pageMode, loadPicks]);
 
   const handleTogglePick = useCallback(
     async (article) => {
@@ -241,7 +241,7 @@ export default function Home() {
       updateArticleInState(article.articleId, { isPicked: next });
 
       if (next) {
-        // Today News 목록에도 즉시 반영 (브라우즈 화면에서 Pick하자마자 나타나도록)
+        // Today News 목록에도 즉시 반영 (브라우즈 화면에서 스크랩하자마자 나타나도록)
         setPicks((prev) => [
           {
             article_id: article.articleId,
@@ -275,13 +275,13 @@ export default function Home() {
         }
       } catch {
         updateArticleInState(article.articleId, { isPicked: !next }); // 실패 시 롤백
-        loadPicks(pickPeriod); // Today News 쪽도 서버 상태로 재동기화
+        loadPicks(); // Today News 쪽도 서버 상태로 재동기화
       }
     },
-    [updateArticleInState, loadPicks, pickPeriod]
+    [updateArticleInState, loadPicks]
   );
 
-  // Today News 화면 내에서 ✕로 빼기 — 브라우즈 화면의 Pick 버튼 상태도 함께 동기화
+  // Today News 화면 내에서 ✕로 빼기 — 브라우즈 화면의 스크랩 버튼 상태도 함께 동기화
   const handleRemovePickById = useCallback(
     async (articleId) => {
       setPicks((prev) => prev.filter((p) => p.article_id !== articleId));
@@ -290,10 +290,10 @@ export default function Home() {
         await removePick(articleId);
       } catch {
         updateArticleInState(articleId, { isPicked: true });
-        loadPicks(pickPeriod);
+        loadPicks();
       }
     },
-    [updateArticleInState, loadPicks, pickPeriod]
+    [updateArticleInState, loadPicks]
   );
 
   const pickedCount = useMemo(
@@ -435,7 +435,7 @@ export default function Home() {
             </h2>
           </div>
           <span className="shrink-0 font-(family-name:--font-mono) text-xs text-(--color-ink-faint)">
-            {pageMode === 'today' ? `Pick ${pickedCount}건` : `${visibleClusters.length}건 표시 중`}
+            {pageMode === 'today' ? `스크랩 ${pickedCount}건` : `${visibleClusters.length}건 표시 중`}
           </span>
         </header>
 

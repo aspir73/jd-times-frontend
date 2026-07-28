@@ -4,7 +4,7 @@ const TABS = [
   { key: 'ALL', label: '전체' },
   { key: 'UNREAD', label: '읽지 않음' },
   { key: 'READ', label: '읽음' },
-  { key: 'PICK', label: 'Pick' },
+  { key: 'PICK', label: '스크랩' },
   { key: 'BOOKMARK', label: '★ 북마크' },
 ];
 

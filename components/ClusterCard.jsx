@@ -62,16 +62,16 @@ function ArticleRow({ article, variant, onToggleRead, onToggleBookmark, onToggle
         {onTogglePick && (
           <button
             onClick={() => onTogglePick(article)}
-            aria-label={article.isPicked ? 'Today News에서 빼기' : 'Today News에 담기'}
-            title={article.isPicked ? 'Today News에서 빼기' : 'Today News에 담기'}
+            aria-label={article.isPicked ? '스크랩 해제' : '스크랩하기'}
+            title={article.isPicked ? '스크랩 해제' : '스크랩하기 (Today News에 담기)'}
             className={[
-              'text-[11px] leading-none cursor-pointer transition-colors rounded-full w-4 h-4 flex items-center justify-center border',
+              'text-lg leading-none cursor-pointer transition-colors p-0.5',
               article.isPicked
-                ? 'bg-(--color-signal-amber) border-(--color-signal-amber) text-(--color-paper)'
-                : 'border-(--color-ink-faint) text-(--color-ink-faint) hover:border-(--color-signal-amber) hover:text-(--color-signal-amber)',
+                ? 'text-(--color-signal-amber)'
+                : 'text-(--color-ink-faint) hover:text-(--color-signal-amber)',
             ].join(' ')}
           >
-            {article.isPicked ? '✓' : '+'}
+            {article.isPicked ? '☑' : '☐'}
           </button>
         )}
       </div>
