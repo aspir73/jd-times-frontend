@@ -21,6 +21,7 @@ import {
   bulkSetArticleStatus,
   addPick,
   removePick,
+  reorderPicks,
   getPicks,
 } from '@/lib/api';
 
@@ -296,6 +297,37 @@ export default function Home() {
     [updateArticleInState, loadPicks]
   );
 
+  // Today News에서 위/아래 버튼으로 순서 조정
+  const handleReorderPick = useCallback(
+    async (articleIds) => {
+      setPicks((prev) => {
+        const idSet = new Set(articleIds);
+        const byId = new Map(prev.map((p) => [p.article_id, p]));
+        const result = [];
+        let inserted = false;
+        for (const p of prev) {
+          if (idSet.has(p.article_id)) {
+            if (!inserted) {
+              for (const id of articleIds) {
+                if (byId.has(id)) result.push(byId.get(id));
+              }
+              inserted = true;
+            }
+          } else {
+            result.push(p);
+          }
+        }
+        return result;
+      });
+      try {
+        await reorderPicks(articleIds);
+      } catch {
+        loadPicks(); // 실패 시 서버 상태로 재동기화
+      }
+    },
+    [loadPicks]
+  );
+
   const pickedCount = useMemo(
     () => clusters.reduce((sum, c) => sum + flattenArticles(c).filter((a) => a.isPicked).length, 0),
     [clusters]
@@ -449,6 +481,7 @@ export default function Home() {
             viewMode={viewMode}
             onViewModeChange={setViewMode}
             onRemovePick={handleRemovePickById}
+            onReorderPick={handleReorderPick}
           />
         ) : (
         <>

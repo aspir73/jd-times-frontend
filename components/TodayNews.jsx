@@ -78,8 +78,8 @@ function formatDigestText(dateKey, feedEntries) {
   return lines.join('\n');
 }
 
-/** 하루치 다이제스트 카드. editable=false면 삭제(✕) 버튼을 아예 렌더링하지 않음 (확정된 과거 기록 보호) */
-function DayDigestCard({ dateKey, feedEntries, viewMode, editable, isCopied, onCopy, onRemove }) {
+/** 하루치 다이제스트 카드. editable=false면 삭제(✕)/순서조정 버튼을 아예 렌더링하지 않음 (확정된 과거 기록 보호) */
+function DayDigestCard({ dateKey, feedEntries, viewMode, editable, isCopied, onCopy, onRemove, onMove }) {
   return (
     <section className="rounded-lg border border-(--color-rule) bg-(--color-paper-raised) overflow-hidden">
       <div className="flex items-center justify-between px-5 py-3 border-b border-(--color-rule)">
@@ -103,16 +103,36 @@ function DayDigestCard({ dateKey, feedEntries, viewMode, editable, isCopied, onC
 
             {viewMode === 'list' ? (
               <ul className="space-y-1.5">
-                {articles.map((a) => (
+                {articles.map((a, idx) => (
                   <li key={a.article_id} className="flex items-start gap-2 text-sm">
                     {editable && (
-                      <button
-                        onClick={() => onRemove(a.article_id)}
-                        aria-label="스크랩 해제"
-                        className="mt-0.5 shrink-0 text-(--color-ink-faint) hover:text-(--color-stamp-red) cursor-pointer text-xs"
-                      >
-                        ✕
-                      </button>
+                      <>
+                        <span className="mt-0.5 shrink-0 flex flex-col leading-none">
+                          <button
+                            onClick={() => onMove(feedTitle, articles, idx, -1)}
+                            disabled={idx === 0}
+                            aria-label="위로 이동"
+                            className="text-(--color-ink-faint) hover:text-(--color-wire-blue) disabled:opacity-20 disabled:cursor-default cursor-pointer text-[10px]"
+                          >
+                            ▲
+                          </button>
+                          <button
+                            onClick={() => onMove(feedTitle, articles, idx, 1)}
+                            disabled={idx === articles.length - 1}
+                            aria-label="아래로 이동"
+                            className="text-(--color-ink-faint) hover:text-(--color-wire-blue) disabled:opacity-20 disabled:cursor-default cursor-pointer text-[10px]"
+                          >
+                            ▼
+                          </button>
+                        </span>
+                        <button
+                          onClick={() => onRemove(a.article_id)}
+                          aria-label="스크랩 해제"
+                          className="mt-0.5 shrink-0 text-(--color-ink-faint) hover:text-(--color-stamp-red) cursor-pointer text-xs"
+                        >
+                          ✕
+                        </button>
+                      </>
                     )}
                     <a
                       href={a.link}
@@ -127,16 +147,36 @@ function DayDigestCard({ dateKey, feedEntries, viewMode, editable, isCopied, onC
               </ul>
             ) : (
               <div className="space-y-3">
-                {articles.map((a) => (
+                {articles.map((a, idx) => (
                   <div key={a.article_id} className="flex items-start gap-2">
                     {editable && (
-                      <button
-                        onClick={() => onRemove(a.article_id)}
-                        aria-label="스크랩 해제"
-                        className="mt-0.5 shrink-0 text-(--color-ink-faint) hover:text-(--color-stamp-red) cursor-pointer text-sm"
-                      >
-                        ✕
-                      </button>
+                      <>
+                        <span className="mt-0.5 shrink-0 flex flex-col leading-none">
+                          <button
+                            onClick={() => onMove(feedTitle, articles, idx, -1)}
+                            disabled={idx === 0}
+                            aria-label="위로 이동"
+                            className="text-(--color-ink-faint) hover:text-(--color-wire-blue) disabled:opacity-20 disabled:cursor-default cursor-pointer text-[10px]"
+                          >
+                            ▲
+                          </button>
+                          <button
+                            onClick={() => onMove(feedTitle, articles, idx, 1)}
+                            disabled={idx === articles.length - 1}
+                            aria-label="아래로 이동"
+                            className="text-(--color-ink-faint) hover:text-(--color-wire-blue) disabled:opacity-20 disabled:cursor-default cursor-pointer text-[10px]"
+                          >
+                            ▼
+                          </button>
+                        </span>
+                        <button
+                          onClick={() => onRemove(a.article_id)}
+                          aria-label="스크랩 해제"
+                          className="mt-0.5 shrink-0 text-(--color-ink-faint) hover:text-(--color-stamp-red) cursor-pointer text-sm"
+                        >
+                          ✕
+                        </button>
+                      </>
                     )}
                     <div className="min-w-0">
                       <a
@@ -171,6 +211,7 @@ export default function TodayNews({
   viewMode,
   onViewModeChange,
   onRemovePick,
+  onReorderPick,
 }) {
   const [copiedKey, setCopiedKey] = useState(null);
   const [query, setQuery] = useState('');
@@ -255,6 +296,17 @@ export default function TodayNews({
       onRemovePick?.(articleId);
     },
     [onRemovePick]
+  );
+
+  const handleMove = useCallback(
+    (feedTitle, articles, idx, direction) => {
+      const targetIdx = idx + direction;
+      if (targetIdx < 0 || targetIdx >= articles.length) return;
+      const reordered = [...articles];
+      [reordered[idx], reordered[targetIdx]] = [reordered[targetIdx], reordered[idx]];
+      onReorderPick?.(reordered.map((a) => a.article_id));
+    },
+    [onReorderPick]
   );
 
   const handleCopy = useCallback(async (dateKey, feedEntries) => {
@@ -379,6 +431,7 @@ export default function TodayNews({
             isCopied={copiedKey === topEntry[0]}
             onCopy={handleCopy}
             onRemove={handleRemove}
+            onMove={handleMove}
           />
         )}
 
@@ -412,6 +465,7 @@ export default function TodayNews({
                         isCopied={copiedKey === dateKey}
                         onCopy={handleCopy}
                         onRemove={handleRemove}
+            onMove={handleMove}
                       />
                     ))}
                   </div>
