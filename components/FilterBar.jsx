@@ -1,11 +1,13 @@
 'use client';
 
+import { RibbonIcon } from './icons';
+
 const TABS = [
   { key: 'ALL', label: '전체' },
   { key: 'UNREAD', label: '읽지 않음' },
   { key: 'READ', label: '읽음' },
-  { key: 'PICK', label: '스크랩' },
-  { key: 'BOOKMARK', label: '★ 북마크' },
+  { key: 'PICK', label: '스크랩', icon: '★' },
+  { key: 'BOOKMARK', label: '북마크', icon: 'ribbon' },
 ];
 
 export default function FilterBar({ active, onChange, counts }) {
@@ -25,6 +27,11 @@ export default function FilterBar({ active, onChange, counts }) {
                 : 'text-(--color-ink-soft) hover:text-(--color-ink)',
             ].join(' ')}
           >
+            {tab.icon === 'ribbon' ? (
+              <RibbonIcon filled={false} className="inline-block align-[-1px]" />
+            ) : tab.icon ? (
+              <span aria-hidden="true">{tab.icon}</span>
+            ) : null}
             {tab.label}
             {count !== null && (
               <span

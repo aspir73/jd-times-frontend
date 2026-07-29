@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { RibbonIcon } from './icons';
 
 const TIME_ZONE = 'Asia/Seoul';
@@ -22,86 +23,140 @@ function displayTime(article) {
   return article.pubDateDisplay || formatTime(article.pubDate);
 }
 
+function RowIcons({ article, onToggleBookmark, onTogglePick }) {
+  return (
+    <>
+      <button
+        onClick={() => onToggleBookmark(article)}
+        aria-label={article.isBookmarked ? '북마크 해제' : '북마크 추가'}
+        className={[
+          'shrink-0 text-base leading-none cursor-pointer transition-colors p-0.5',
+          article.isBookmarked
+            ? 'text-(--color-stamp-red)'
+            : 'text-(--color-ink-faint) hover:text-(--color-stamp-red)',
+        ].join(' ')}
+      >
+        <RibbonIcon filled={article.isBookmarked} />
+      </button>
+      {onTogglePick && (
+        <button
+          onClick={() => onTogglePick(article)}
+          aria-label={article.isPicked ? '스크랩 해제' : '스크랩하기'}
+          title={article.isPicked ? '스크랩 해제' : '스크랩하기 (Today News에 담기)'}
+          className={[
+            'shrink-0 text-base leading-none cursor-pointer transition-colors p-0.5',
+            article.isPicked
+              ? 'text-(--color-signal-amber)'
+              : 'text-(--color-ink-faint) hover:text-(--color-signal-amber)',
+          ].join(' ')}
+        >
+          {article.isPicked ? '★' : '☆'}
+        </button>
+      )}
+    </>
+  );
+}
+
 export default function ClusterListItem({ cluster, onToggleRead, onToggleBookmark, onTogglePick, selected, onToggleSelect }) {
+  const [expanded, setExpanded] = useState(false);
   const { primaryArticle, relatedArticles, keyword } = cluster;
   const sourceCount = 1 + relatedArticles.length;
 
   return (
     <div
       className={[
-        'flex items-center gap-3 px-3 py-2 rounded border-b last:border-b-0 border-(--color-rule) transition-colors',
-        selected ? 'bg-(--color-wire-blue)/5' : 'hover:bg-(--color-rule)/30',
+        'border-b last:border-b-0 border-(--color-rule) transition-colors',
+        selected ? 'bg-(--color-wire-blue)/5' : '',
       ].join(' ')}
     >
-      {onToggleSelect && (
-        <input
-          type="checkbox"
-          checked={!!selected}
-          onChange={() => onToggleSelect(cluster)}
-          aria-label="이 소식 선택"
-          className="w-4 h-4 accent-(--color-wire-blue) cursor-pointer shrink-0"
-        />
-      )}
+      <div className="flex items-center gap-3 px-3 py-2 hover:bg-(--color-rule)/30">
+        {onToggleSelect && (
+          <input
+            type="checkbox"
+            checked={!!selected}
+            onChange={() => onToggleSelect(cluster)}
+            aria-label="이 소식 선택"
+            className="w-4 h-4 accent-(--color-wire-blue) cursor-pointer shrink-0"
+          />
+        )}
 
-      <button
-        onClick={() => onToggleBookmark(primaryArticle)}
-        aria-label={primaryArticle.isBookmarked ? '북마크 해제' : '북마크 추가'}
-        className={[
-          'shrink-0 text-base leading-none cursor-pointer transition-colors p-0.5',
-          primaryArticle.isBookmarked
-            ? 'text-(--color-stamp-red)'
-            : 'text-(--color-ink-faint) hover:text-(--color-stamp-red)',
-        ].join(' ')}
-      >
-        <RibbonIcon filled={primaryArticle.isBookmarked} />
-      </button>
+        <RowIcons article={primaryArticle} onToggleBookmark={onToggleBookmark} onTogglePick={onTogglePick} />
 
-      {onTogglePick && (
-        <button
-          onClick={() => onTogglePick(primaryArticle)}
-          aria-label={primaryArticle.isPicked ? '스크랩 해제' : '스크랩하기'}
-          title={primaryArticle.isPicked ? '스크랩 해제' : '스크랩하기 (Today News에 담기)'}
-          className={[
-            'shrink-0 text-base leading-none cursor-pointer transition-colors p-0.5',
-            primaryArticle.isPicked
-              ? 'text-(--color-signal-amber)'
-              : 'text-(--color-ink-faint) hover:text-(--color-signal-amber)',
-          ].join(' ')}
-        >
-          {primaryArticle.isPicked ? '★' : '☆'}
-        </button>
-      )}
-
-      <span className="shrink-0 hidden sm:inline-block font-(family-name:--font-sans) text-[11px] font-semibold text-(--color-wire-blue) bg-(--color-wire-blue)/10 rounded px-1.5 py-0.5 max-w-24 truncate">
-        {keyword}
-      </span>
-
-      <a
-        href={primaryArticle.link}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={() => !primaryArticle.isRead && onToggleRead(primaryArticle)}
-        className="min-w-0 flex-1 flex items-baseline gap-2"
-      >
-        <span
-          className={[
-            'font-(family-name:--font-display) text-sm truncate',
-            primaryArticle.isRead
-              ? 'text-(--color-ink-soft) font-normal'
-              : 'text-(--color-ink) font-semibold',
-          ].join(' ')}
-        >
-          {primaryArticle.title}
+        <span className="shrink-0 hidden sm:inline-block font-(family-name:--font-sans) text-[11px] font-semibold text-(--color-wire-blue) bg-(--color-wire-blue)/10 rounded px-1.5 py-0.5 max-w-24 truncate">
+          {keyword}
         </span>
+
+        <a
+          href={primaryArticle.link}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => !primaryArticle.isRead && onToggleRead(primaryArticle)}
+          className="min-w-0 flex-1 flex items-baseline gap-2"
+        >
+          <span
+            className={[
+              'font-(family-name:--font-display) text-sm truncate',
+              primaryArticle.isRead
+                ? 'text-(--color-ink-soft) font-normal'
+                : 'text-(--color-ink) font-semibold',
+            ].join(' ')}
+          >
+            {primaryArticle.title}
+          </span>
+          <span className="shrink-0 font-(family-name:--font-mono) text-[11px] text-(--color-ink-faint)">
+            {primaryArticle.source}
+          </span>
+        </a>
+
         <span className="shrink-0 font-(family-name:--font-mono) text-[11px] text-(--color-ink-faint)">
-          {primaryArticle.source}
-          {sourceCount > 1 ? ` 외 ${sourceCount - 1}` : ''}
+          {displayTime(primaryArticle)}
         </span>
-      </a>
 
-      <span className="shrink-0 font-(family-name:--font-mono) text-[11px] text-(--color-ink-faint)">
-        {displayTime(primaryArticle)}
-      </span>
+        {sourceCount > 1 && (
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            className="shrink-0 flex items-center gap-1 font-(family-name:--font-mono) text-[11px] text-(--color-wire-blue) hover:underline cursor-pointer"
+          >
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-(--color-signal-amber)" />
+            {sourceCount}건 확인 {expanded ? '▴' : '▾'}
+          </button>
+        )}
+      </div>
+
+      {expanded && sourceCount > 1 && (
+        <div className="accordion-enter pl-9 pr-3 pb-2 space-y-0.5">
+          {relatedArticles.map((a) => (
+            <div
+              key={a.articleId}
+              className="flex items-center gap-3 py-1 pl-3 border-l-2 border-(--color-rule)"
+            >
+              <RowIcons article={a} onToggleBookmark={onToggleBookmark} onTogglePick={onTogglePick} />
+              <a
+                href={a.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => !a.isRead && onToggleRead(a)}
+                className="min-w-0 flex-1 flex items-baseline gap-2"
+              >
+                <span
+                  className={[
+                    'font-(family-name:--font-display) text-sm truncate',
+                    a.isRead ? 'text-(--color-ink-soft) font-normal' : 'text-(--color-ink) font-medium',
+                  ].join(' ')}
+                >
+                  {a.title}
+                </span>
+                <span className="shrink-0 font-(family-name:--font-mono) text-[11px] text-(--color-ink-faint)">
+                  {a.source}
+                </span>
+              </a>
+              <span className="shrink-0 font-(family-name:--font-mono) text-[11px] text-(--color-ink-faint)">
+                {displayTime(a)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
