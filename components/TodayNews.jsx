@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { computeDigestDate, addDaysToDateKey } from '@/lib/digestDate';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -78,8 +78,116 @@ function formatDigestText(dateKey, feedEntries) {
   return lines.join('\n');
 }
 
+/**
+ * 눌러서 밀어 움직이는(Push & Drag) 방식의 순서 조정 리스트.
+ * 마우스와 모바일 터치 둘 다 Pointer Events 하나로 처리한다.
+ * 드래그 중인 항목을 손가락/커서 위치로 따라 움직이게 하고, 이웃 항목의 절반을
+ * 넘어서는 순간 자리를 바꾼다(대부분의 정렬 가능 리스트가 쓰는 방식).
+ */
+function ReorderableArticles({ articles, onReorderCommit, renderItem }) {
+  const [order, setOrder] = useState(articles);
+  const [dragId, setDragId] = useState(null);
+  const [dragY, setDragY] = useState(0);
+  const orderRef = useRef(articles);
+  const rowRefs = useRef(new Map());
+
+  useEffect(() => {
+    orderRef.current = order;
+  }, [order]);
+
+  // 부모 쪽 articles가 바뀌면 동기화 (드래그 중에는 건드리지 않음 — 손 놓을 때 최종본을 부모로 보냄)
+  useEffect(() => {
+    if (!dragId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 부모가 넘겨준 목록과 동기화하는 의도된 패턴
+      setOrder(articles);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- dragId를 넣으면 드래그 종료 순간 order가 잠깐 되돌아가는 버그가 생김
+  }, [articles]);
+
+  const startDrag = useCallback(
+    (e, articleId) => {
+      e.preventDefault();
+      const rowEl = rowRefs.current.get(articleId);
+      const rowHeight = rowEl?.getBoundingClientRect().height || 48;
+      let startY = e.clientY;
+      setDragId(articleId);
+      setDragY(0);
+
+      const handleMove = (ev) => {
+        const delta = ev.clientY - startY;
+        setDragY(delta);
+        if (Math.abs(delta) < rowHeight / 2) return;
+
+        const dir = delta > 0 ? 1 : -1;
+        setOrder((prev) => {
+          const idx = prev.findIndex((a) => a.article_id === articleId);
+          const targetIdx = idx + dir;
+          if (idx === -1 || targetIdx < 0 || targetIdx >= prev.length) return prev;
+          const next = [...prev];
+          [next[idx], next[targetIdx]] = [next[targetIdx], next[idx]];
+          return next;
+        });
+        startY = ev.clientY;
+        setDragY(0);
+      };
+
+      const handleUp = () => {
+        window.removeEventListener('pointermove', handleMove);
+        window.removeEventListener('pointerup', handleUp);
+        setDragId(null);
+        setDragY(0);
+        onReorderCommit(orderRef.current.map((a) => a.article_id));
+      };
+
+      window.addEventListener('pointermove', handleMove);
+      window.addEventListener('pointerup', handleUp);
+    },
+    [onReorderCommit]
+  );
+
+  // eslint-disable-next-line react-hooks/refs -- 드래그 시작 시 높이 측정을 위한 콜백 ref (표준 패턴)
+  return order.map((article) => {
+    const isDragging = article.article_id === dragId;
+    return (
+      <div
+        key={article.article_id}
+        ref={(el) => {
+          if (el) rowRefs.current.set(article.article_id, el);
+          else rowRefs.current.delete(article.article_id);
+        }}
+        style={
+          isDragging
+            ? { transform: `translateY(${dragY}px)`, position: 'relative', zIndex: 20 }
+            : undefined
+        }
+        className={isDragging ? 'opacity-90 shadow-lg bg-(--color-paper)' : undefined}
+      >
+        {renderItem(article, {
+          onPointerDown: (e) => startDrag(e, article.article_id),
+          isDragging,
+        })}
+      </div>
+    );
+  });
+}
+
+/** 드래그 손잡이 아이콘 - 누르고 위아래로 밀면 순서가 바뀜 */
+function DragHandle({ onPointerDown }) {
+  return (
+    <span
+      onPointerDown={onPointerDown}
+      aria-label="눌러서 순서 조정"
+      title="눌러서 위아래로 밀면 순서가 바뀝니다"
+      className="mt-0.5 shrink-0 text-(--color-ink-faint) hover:text-(--color-wire-blue) cursor-grab active:cursor-grabbing select-none text-sm leading-none px-0.5"
+      style={{ touchAction: 'none' }}
+    >
+      ⠿
+    </span>
+  );
+}
+
 /** 하루치 다이제스트 카드. editable=false면 삭제(✕)/순서조정 버튼을 아예 렌더링하지 않음 (확정된 과거 기록 보호) */
-function DayDigestCard({ dateKey, feedEntries, viewMode, editable, isCopied, onCopy, onRemove, onMove }) {
+function DayDigestCard({ dateKey, feedEntries, viewMode, editable, isCopied, onCopy, onRemove, onReorderCommit }) {
   return (
     <section className="rounded-lg border border-(--color-rule) bg-(--color-paper-raised) overflow-hidden">
       <div className="flex items-center justify-between px-5 py-3 border-b border-(--color-rule)">
@@ -101,39 +209,61 @@ function DayDigestCard({ dateKey, feedEntries, viewMode, editable, isCopied, onC
               【{feedTitle}】
             </p>
 
-            {viewMode === 'list' ? (
-              <ul className="space-y-1.5">
-                {articles.map((a, idx) => (
-                  <li key={a.article_id} className="flex items-start gap-2 text-sm">
-                    {editable && (
-                      <>
-                        <span className="mt-0.5 shrink-0 flex flex-col leading-none">
-                          <button
-                            onClick={() => onMove(feedTitle, articles, idx, -1)}
-                            disabled={idx === 0}
-                            aria-label="위로 이동"
-                            className="text-(--color-ink-faint) hover:text-(--color-wire-blue) disabled:opacity-20 disabled:cursor-default cursor-pointer text-[10px]"
-                          >
-                            ▲
-                          </button>
-                          <button
-                            onClick={() => onMove(feedTitle, articles, idx, 1)}
-                            disabled={idx === articles.length - 1}
-                            aria-label="아래로 이동"
-                            className="text-(--color-ink-faint) hover:text-(--color-wire-blue) disabled:opacity-20 disabled:cursor-default cursor-pointer text-[10px]"
-                          >
-                            ▼
-                          </button>
-                        </span>
-                        <button
-                          onClick={() => onRemove(a.article_id)}
-                          aria-label="스크랩 해제"
-                          className="mt-0.5 shrink-0 text-(--color-ink-faint) hover:text-(--color-stamp-red) cursor-pointer text-xs"
+            {editable ? (
+              <ReorderableArticles
+                articles={articles}
+                onReorderCommit={(ids) => onReorderCommit(feedTitle, ids)}
+                renderItem={(a, dragProps) =>
+                  viewMode === 'list' ? (
+                    <div className="flex items-start gap-2 text-sm py-0.5">
+                      <DragHandle onPointerDown={dragProps.onPointerDown} />
+                      <button
+                        onClick={() => onRemove(a.article_id)}
+                        aria-label="스크랩 해제"
+                        className="mt-0.5 shrink-0 text-(--color-ink-faint) hover:text-(--color-stamp-red) cursor-pointer text-xs"
+                      >
+                        ✕
+                      </button>
+                      <a
+                        href={a.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="min-w-0 truncate font-(family-name:--font-display) text-(--color-ink) hover:text-(--color-wire-blue)"
+                      >
+                        {a.title}
+                      </a>
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-2 py-1">
+                      <DragHandle onPointerDown={dragProps.onPointerDown} />
+                      <button
+                        onClick={() => onRemove(a.article_id)}
+                        aria-label="스크랩 해제"
+                        className="mt-0.5 shrink-0 text-(--color-ink-faint) hover:text-(--color-stamp-red) cursor-pointer text-sm"
+                      >
+                        ✕
+                      </button>
+                      <div className="min-w-0">
+                        <a
+                          href={a.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-(family-name:--font-display) text-base font-semibold text-(--color-ink) hover:text-(--color-wire-blue) leading-snug"
                         >
-                          ✕
-                        </button>
-                      </>
-                    )}
+                          {a.title}
+                        </a>
+                        <p className="mt-0.5 font-(family-name:--font-mono) text-xs text-(--color-ink-faint) truncate">
+                          {a.source} · {a.link}
+                        </p>
+                      </div>
+                    </div>
+                  )
+                }
+              />
+            ) : viewMode === 'list' ? (
+              <ul className="space-y-1.5">
+                {articles.map((a) => (
+                  <li key={a.article_id} className="flex items-start gap-2 text-sm">
                     <a
                       href={a.link}
                       target="_blank"
@@ -147,37 +277,8 @@ function DayDigestCard({ dateKey, feedEntries, viewMode, editable, isCopied, onC
               </ul>
             ) : (
               <div className="space-y-3">
-                {articles.map((a, idx) => (
+                {articles.map((a) => (
                   <div key={a.article_id} className="flex items-start gap-2">
-                    {editable && (
-                      <>
-                        <span className="mt-0.5 shrink-0 flex flex-col leading-none">
-                          <button
-                            onClick={() => onMove(feedTitle, articles, idx, -1)}
-                            disabled={idx === 0}
-                            aria-label="위로 이동"
-                            className="text-(--color-ink-faint) hover:text-(--color-wire-blue) disabled:opacity-20 disabled:cursor-default cursor-pointer text-[10px]"
-                          >
-                            ▲
-                          </button>
-                          <button
-                            onClick={() => onMove(feedTitle, articles, idx, 1)}
-                            disabled={idx === articles.length - 1}
-                            aria-label="아래로 이동"
-                            className="text-(--color-ink-faint) hover:text-(--color-wire-blue) disabled:opacity-20 disabled:cursor-default cursor-pointer text-[10px]"
-                          >
-                            ▼
-                          </button>
-                        </span>
-                        <button
-                          onClick={() => onRemove(a.article_id)}
-                          aria-label="스크랩 해제"
-                          className="mt-0.5 shrink-0 text-(--color-ink-faint) hover:text-(--color-stamp-red) cursor-pointer text-sm"
-                        >
-                          ✕
-                        </button>
-                      </>
-                    )}
                     <div className="min-w-0">
                       <a
                         href={a.link}
@@ -298,13 +399,9 @@ export default function TodayNews({
     [onRemovePick]
   );
 
-  const handleMove = useCallback(
-    (feedTitle, articles, idx, direction) => {
-      const targetIdx = idx + direction;
-      if (targetIdx < 0 || targetIdx >= articles.length) return;
-      const reordered = [...articles];
-      [reordered[idx], reordered[targetIdx]] = [reordered[targetIdx], reordered[idx]];
-      onReorderPick?.(reordered.map((a) => a.article_id));
+  const handleReorderCommit = useCallback(
+    (feedTitle, newOrderArticleIds) => {
+      onReorderPick?.(newOrderArticleIds);
     },
     [onReorderPick]
   );
@@ -431,7 +528,7 @@ export default function TodayNews({
             isCopied={copiedKey === topEntry[0]}
             onCopy={handleCopy}
             onRemove={handleRemove}
-            onMove={handleMove}
+            onReorderCommit={handleReorderCommit}
           />
         )}
 
@@ -465,7 +562,7 @@ export default function TodayNews({
                         isCopied={copiedKey === dateKey}
                         onCopy={handleCopy}
                         onRemove={handleRemove}
-            onMove={handleMove}
+            onReorderCommit={handleReorderCommit}
                       />
                     ))}
                   </div>
