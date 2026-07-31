@@ -65,6 +65,16 @@ function formatWeekLabel(representativeDateKey) {
   return `Week ${weekNum}, '${yy}년 ${m}월 ${d}일 ${WEEKDAYS[weekday]}요일`;
 }
 
+function getMonthKey(dateKey) {
+  const [y, m] = dateKey.split('-').map(Number);
+  return `${y}-${String(m).padStart(2, '0')}`;
+}
+
+function formatMonthLabel(dateKey) {
+  const [y, m] = dateKey.split('-').map(Number);
+  return `${y}년 ${m}월`;
+}
+
 /** 예시 포맷대로 순수 텍스트 다이제스트 생성 */
 function formatDigestText(dateKey, feedEntries) {
   const lines = [`□ Today's JD Times (${formatDayLabel(dateKey)})`];
@@ -76,6 +86,35 @@ function formatDigestText(dateKey, feedEntries) {
     }
   }
   return lines.join('\n');
+}
+
+function getInitialExpandedState(period, weekGroups, monthGroups) {
+  if (period === 'week' && weekGroups.length > 0) {
+    const latestWeekKey = weekGroups[0][0];
+    const latestDayKey = weekGroups[0][1]?.[0]?.[0];
+    return {
+      expandedMonths: new Set(),
+      expandedWeeks: new Set([latestWeekKey]),
+      expandedDays: new Set(latestDayKey ? [latestDayKey] : []),
+    };
+  }
+
+  if (period === 'month' && monthGroups.length > 0) {
+    const [latestMonthKey, latestMonthDays] = monthGroups[0];
+    const latestWeekKey = `${latestMonthKey}:${getMondayOfWeek(latestMonthDays[0][0])}`;
+    const latestDayKey = `${latestMonthKey}:${latestMonthDays[0][0]}`;
+    return {
+      expandedMonths: new Set([latestMonthKey]),
+      expandedWeeks: new Set([latestWeekKey]),
+      expandedDays: new Set([latestDayKey]),
+    };
+  }
+
+  return {
+    expandedMonths: new Set(),
+    expandedWeeks: new Set(),
+    expandedDays: new Set(),
+  };
 }
 
 /**
@@ -316,7 +355,6 @@ export default function TodayNews({
 }) {
   const [copiedKey, setCopiedKey] = useState(null);
   const [query, setQuery] = useState('');
-  const [expandedWeeks, setExpandedWeeks] = useState(new Set());
 
   const isDateMode = DATE_RE.test(period);
 
@@ -369,25 +407,60 @@ export default function TodayNews({
       .map(([dateKey, feedMap]) => [dateKey, sortFeedEntries(feedMap)]);
   }, [searched]);
 
-  // 최상단 = 가장 최근 날짜(지금까지와 동일하게 펼쳐서 표시), 나머지는 주 단위로 묶어서 접어둠
   const topEntry = groupedByDay[0] ?? null;
-  const restDays = groupedByDay.slice(1);
 
   const weekGroups = useMemo(() => {
-    const groups = new Map(); // 그 주 월요일 날짜 -> [ [dateKey, feedEntries], ... ] (최신순)
-    for (const entry of restDays) {
+    const groups = new Map();
+    for (const entry of groupedByDay) {
       const monday = getMondayOfWeek(entry[0]);
       if (!groups.has(monday)) groups.set(monday, []);
       groups.get(monday).push(entry);
     }
     return [...groups.entries()].sort((a, b) => b[0].localeCompare(a[0]));
-  }, [restDays]);
+  }, [groupedByDay]);
+
+  const monthGroups = useMemo(() => {
+    const groups = new Map();
+    for (const entry of groupedByDay) {
+      const month = getMonthKey(entry[0]);
+      if (!groups.has(month)) groups.set(month, []);
+      groups.get(month).push(entry);
+    }
+    return [...groups.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+  }, [groupedByDay]);
+
+  const initialExpandedState = useMemo(
+    () => getInitialExpandedState(period, weekGroups, monthGroups),
+    [period, weekGroups, monthGroups]
+  );
+
+  const [expandedMonths, setExpandedMonths] = useState(() => initialExpandedState.expandedMonths);
+  const [expandedWeeks, setExpandedWeeks] = useState(() => initialExpandedState.expandedWeeks);
+  const [expandedDays, setExpandedDays] = useState(() => initialExpandedState.expandedDays);
+
+  const toggleMonth = useCallback((monthKey) => {
+    setExpandedMonths((prev) => {
+      const next = new Set(prev);
+      if (next.has(monthKey)) next.delete(monthKey);
+      else next.add(monthKey);
+      return next;
+    });
+  }, []);
 
   const toggleWeek = useCallback((mondayKey) => {
     setExpandedWeeks((prev) => {
       const next = new Set(prev);
       if (next.has(mondayKey)) next.delete(mondayKey);
       else next.add(mondayKey);
+      return next;
+    });
+  }, []);
+
+  const toggleDay = useCallback((dateKey) => {
+    setExpandedDays((prev) => {
+      const next = new Set(prev);
+      if (next.has(dateKey)) next.delete(dateKey);
+      else next.add(dateKey);
       return next;
     });
   }, []);
@@ -518,8 +591,7 @@ export default function TodayNews({
           </div>
         )}
 
-        {/* 최상단: 가장 최근 날짜 — 지금까지와 동일하게 항상 펼쳐서 표시, 오늘 것이면 삭제 가능 */}
-        {!loading && !error && topEntry && (
+        {!loading && !error && period === 'today' && topEntry && (
           <DayDigestCard
             dateKey={topEntry[0]}
             feedEntries={topEntry[1]}
@@ -532,44 +604,158 @@ export default function TodayNews({
           />
         )}
 
-        {/* 지난 주들: 주 단위로 접어서 표시, 클릭하면 펼쳐짐. 확정된 과거 기록이라 삭제 버튼 없음 */}
-        {!loading &&
-          !error &&
-          weekGroups.map(([mondayKey, days]) => {
-            const isExpanded = expandedWeeks.has(mondayKey);
-            const representativeDate = days[0][0]; // 그 주 안에서 가장 최근 날짜
-            return (
-              <div key={mondayKey} className="rounded-lg border border-(--color-rule) overflow-hidden">
-                <button
-                  onClick={() => toggleWeek(mondayKey)}
-                  className="w-full flex items-center justify-between px-5 py-3 bg-(--color-paper-raised) hover:bg-(--color-rule)/30 transition-colors cursor-pointer"
-                >
-                  <span className="font-(family-name:--font-mono) text-sm text-(--color-ink-soft)">
-                    {formatWeekLabel(representativeDate)}
-                  </span>
-                  <span className="text-(--color-ink-faint) text-xs">{isExpanded ? '▴ 접기' : '▾ 펼치기'}</span>
-                </button>
+        {!loading && !error && (period === 'week' || period === 'month') && (
+          <div className="space-y-3">
+            {period === 'week' &&
+              weekGroups.map(([mondayKey, days]) => {
+                const isExpanded = expandedWeeks.has(mondayKey);
+                const representativeDate = days[0][0];
+                return (
+                  <div key={mondayKey} className="rounded-xl border border-(--color-rule) overflow-hidden bg-(--color-paper) shadow-[0_1px_0_rgba(0,0,0,0.03)]">
+                    <button
+                      onClick={() => toggleWeek(mondayKey)}
+                      className="w-full flex items-center justify-between px-5 py-3 bg-(--color-paper-raised) hover:bg-(--color-rule)/30 transition-colors cursor-pointer border-l-4 border-(--color-wire-blue)"
+                    >
+                      <div className="text-left">
+                        <p className="font-(family-name:--font-display) text-sm font-semibold text-(--color-ink)">
+                          {formatWeekLabel(representativeDate)}
+                        </p>
+                        <p className="text-xs text-(--color-ink-faint)">{days.length}일의 스크랩</p>
+                      </div>
+                      <span className="rounded-full border border-(--color-rule) px-2 py-0.5 text-[11px] text-(--color-ink-faint)">
+                        {isExpanded ? '접기' : '펼치기'}
+                      </span>
+                    </button>
 
-                {isExpanded && (
-                  <div className="accordion-enter px-3 pb-3 pt-1 space-y-3 bg-(--color-paper)">
-                    {days.map(([dateKey, feedEntries]) => (
-                      <DayDigestCard
-                        key={dateKey}
-                        dateKey={dateKey}
-                        feedEntries={feedEntries}
-                        viewMode={viewMode}
-                        editable={false}
-                        isCopied={copiedKey === dateKey}
-                        onCopy={handleCopy}
-                        onRemove={handleRemove}
-            onReorderCommit={handleReorderCommit}
-                      />
-                    ))}
+                    {isExpanded && (
+                      <div className="px-3 py-3 space-y-2">
+                        {days.map(([dateKey, feedEntries]) => {
+                          const isDayExpanded = expandedDays.has(dateKey);
+                          return (
+                            <div key={dateKey} className="rounded-lg border border-(--color-rule)/70 overflow-hidden bg-(--color-paper-raised)">
+                              <button
+                                onClick={() => toggleDay(dateKey)}
+                                className="w-full flex items-center justify-between px-4 py-2.5 text-left cursor-pointer hover:bg-(--color-rule)/20 transition-colors"
+                              >
+                                <span className="font-(family-name:--font-sans) text-sm font-medium text-(--color-ink)">
+                                  {formatDayLabel(dateKey)}
+                                </span>
+                                <span className="text-xs text-(--color-ink-faint)">{isDayExpanded ? '▴' : '▾'}</span>
+                              </button>
+
+                              {isDayExpanded && (
+                                <div className="px-3 pb-3 pt-1">
+                                  <DayDigestCard
+                                    dateKey={dateKey}
+                                    feedEntries={feedEntries}
+                                    viewMode={viewMode}
+                                    editable={false}
+                                    isCopied={copiedKey === dateKey}
+                                    onCopy={handleCopy}
+                                    onRemove={handleRemove}
+                                    onReorderCommit={handleReorderCommit}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            );
-          })}
+                );
+              })}
+
+            {period === 'month' &&
+              monthGroups.map(([monthKey, weeks]) => {
+                const isExpanded = expandedMonths.has(monthKey);
+                const representativeDate = weeks[0][0];
+                return (
+                  <div key={monthKey} className="rounded-xl border border-(--color-rule) overflow-hidden bg-(--color-paper) shadow-[0_1px_0_rgba(0,0,0,0.03)]">
+                    <button
+                      onClick={() => toggleMonth(monthKey)}
+                      className="w-full flex items-center justify-between px-5 py-3 bg-(--color-paper-raised) hover:bg-(--color-rule)/30 transition-colors cursor-pointer border-l-4 border-(--color-wire-blue)"
+                    >
+                      <div className="text-left">
+                        <p className="font-(family-name:--font-display) text-sm font-semibold text-(--color-ink)">
+                          {formatMonthLabel(representativeDate)}
+                        </p>
+                        <p className="text-xs text-(--color-ink-faint)">{weeks.length}일의 스크랩</p>
+                      </div>
+                      <span className="text-(--color-ink-faint) text-xs">{isExpanded ? '▴ 접기' : '▾ 펼치기'}</span>
+                    </button>
+
+                    {isExpanded && (
+                      <div className="px-3 py-3 space-y-2">
+                        {Array.from(
+                          weeks.reduce((map, entry) => {
+                            const monday = getMondayOfWeek(entry[0]);
+                            if (!map.has(monday)) map.set(monday, []);
+                            map.get(monday).push(entry);
+                            return map;
+                          }, new Map()).entries()
+                        )
+                          .sort((a, b) => b[0].localeCompare(a[0]))
+                          .map(([mondayKey, days]) => {
+                            const isWeekExpanded = expandedWeeks.has(`${monthKey}:${mondayKey}`);
+                            const representativeWeekDate = days[0][0];
+                            return (
+                              <div key={`${monthKey}:${mondayKey}`} className="rounded-lg border border-(--color-rule)/70 overflow-hidden bg-(--color-paper-raised)">
+                                <button
+                                  onClick={() => toggleWeek(`${monthKey}:${mondayKey}`)}
+                                  className="w-full flex items-center justify-between px-4 py-2.5 text-left cursor-pointer hover:bg-(--color-rule)/20 transition-colors bg-(--color-paper)/80"
+                                >
+                                  <span className="font-(family-name:--font-sans) text-sm font-medium text-(--color-ink)">
+                                    {formatWeekLabel(representativeWeekDate)}
+                                  </span>
+                                  <span className="text-xs text-(--color-ink-faint)">{isWeekExpanded ? '▴' : '▾'}</span>
+                                </button>
+
+                                {isWeekExpanded && (
+                                  <div className="px-3 pb-3 pt-1 space-y-2">
+                                    {days.map(([dateKey, feedEntries]) => {
+                                      const isDayExpanded = expandedDays.has(`${monthKey}:${dateKey}`);
+                                      return (
+                                        <div key={`${monthKey}:${dateKey}`} className="rounded-lg border border-(--color-rule)/70 overflow-hidden bg-(--color-paper)">
+                                          <button
+                                            onClick={() => toggleDay(`${monthKey}:${dateKey}`)}
+                                            className="w-full flex items-center justify-between px-4 py-2 text-left cursor-pointer hover:bg-(--color-rule)/20 transition-colors"
+                                          >
+                                            <span className="font-(family-name:--font-sans) text-xs font-medium text-(--color-ink)">
+                                              {formatDayLabel(dateKey)}
+                                            </span>
+                                            <span className="text-[11px] text-(--color-ink-faint)">{isDayExpanded ? '▴' : '▾'}</span>
+                                          </button>
+
+                                          {isDayExpanded && (
+                                            <div className="px-3 pb-3 pt-1">
+                                              <DayDigestCard
+                                                dateKey={dateKey}
+                                                feedEntries={feedEntries}
+                                                viewMode={viewMode}
+                                                editable={false}
+                                                isCopied={copiedKey === dateKey}
+                                                onCopy={handleCopy}
+                                                onRemove={handleRemove}
+                                                onReorderCommit={handleReorderCommit}
+                                              />
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+          </div>
+        )}
       </div>
     </div>
   );

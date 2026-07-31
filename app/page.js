@@ -473,6 +473,7 @@ export default function Home() {
 
         {pageMode === 'today' ? (
           <TodayNews
+            key={pickPeriod}
             picks={picks}
             loading={picksLoading}
             error={picksError}
