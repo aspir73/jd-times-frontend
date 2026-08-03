@@ -15,6 +15,7 @@ function groupFeedsByCategory(feeds) {
 export default function Sidebar({
   feeds,
   unreadByCategory,
+  unreadByFeed,
   selected,
   onSelect,
   onAddFeedClick,
@@ -149,19 +150,25 @@ export default function Sidebar({
                     {categoryFeeds.map((feed) => {
                       const isSelectedFeed =
                         pageMode !== 'today' && selected.type === 'feed' && selected.value === feed.id;
+                      const feedUnread = unreadByFeed?.[feed.id] || 0;
                       return (
                         <div key={feed.id} className="group flex items-center">
                           <button
                             onClick={() => { onSelect({ type: 'feed', value: feed.id }); onClose?.(); }}
                             className={[
-                              'flex-1 min-w-0 text-left rounded px-2 py-1 text-xs truncate cursor-pointer transition-colors',
+                              'flex-1 min-w-0 flex items-center justify-between rounded px-2 py-1 text-xs cursor-pointer transition-colors',
                               isSelectedFeed
                                 ? 'text-(--color-wire-blue) font-semibold'
                                 : 'text-(--color-ink-soft) hover:text-(--color-ink)',
                             ].join(' ')}
                             title={feed.title}
                           >
-                            · {feed.title}
+                            <span className="truncate">· {feed.title}</span>
+                            {feedUnread > 0 && (
+                              <span className="shrink-0 font-(family-name:--font-mono) text-[10px] text-(--color-signal-amber) ml-1">
+                                {feedUnread}
+                              </span>
+                            )}
                           </button>
                           <button
                             onClick={() => onEditFeedClick(feed)}

@@ -111,6 +111,19 @@ export default function Home() {
     return map;
   }, [clusters]);
 
+  // 피드별 미확인(unread) 기사 수 — 사이드바 배지용 (전체 스코프 기준)
+  const unreadByFeed = useMemo(() => {
+    const map = {};
+    for (const cluster of clusters) {
+      for (const article of flattenArticles(cluster)) {
+        if (!article.isRead) {
+          map[article.feedId] = (map[article.feedId] || 0) + 1;
+        }
+      }
+    }
+    return map;
+  }, [clusters]);
+
   // 1) 사이드바에서 선택한 카테고리/피드로 범위 축소
   const scopedClusters = useMemo(() => {
     if (selected.type === 'category') {
@@ -441,6 +454,7 @@ export default function Home() {
       <Sidebar
         feeds={feeds}
         unreadByCategory={unreadByCategory}
+        unreadByFeed={unreadByFeed}
         selected={selected}
         onSelect={handleSidebarSelect}
         onAddFeedClick={() => setModalOpen(true)}
