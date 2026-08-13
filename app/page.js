@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import Sidebar from '@/components/Sidebar';
 import FilterBar from '@/components/FilterBar';
 import SearchFilters from '@/components/SearchFilters';
@@ -38,6 +38,9 @@ export default function Home() {
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [lastUpdated, setLastUpdated] = useState(null);
+  // "전체 새로고침"이 기간을 오늘(24시간)로 바꾸면서 이미 강제 재조회를 트리거했을 때,
+  // 아래 기간-변경 감지 effect가 또 한 번(force 없이) 중복 조회하지 않도록 건너뛰는 플래그
+  const skipNextPeriodEffectRef = useRef(false);
 
   const [selected, setSelected] = useState({ type: 'all' });
   const [pageMode, setPageMode] = useState('browse'); // 'browse' | 'today'
@@ -70,11 +73,12 @@ export default function Home() {
   }, [viewMode]);
 
   const loadData = useCallback(
-    async (force = false) => {
+    async (force = false, periodOverride) => {
       force ? setRefreshing(true) : setLoading(true);
       setLoadError('');
       try {
-        const hoursForBackend = period === 'ALL' ? 'all' : period;
+        const effectivePeriod = periodOverride ?? period;
+        const hoursForBackend = effectivePeriod === 'ALL' ? 'all' : effectivePeriod;
         const [feedList, rssData] = await Promise.all([
           getFeeds(),
           getClusters({ force, hours: hoursForBackend }),
@@ -94,8 +98,18 @@ export default function Home() {
 
   // 최초 로드 + 기간(period) 탭이 바뀔 때마다 서버에 다시 조회 (서버가 아카이브까지 포함해 그 기간만큼만 응답)
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 시 및 기간 변경 시 재조회
+    if (skipNextPeriodEffectRef.current) {
+      skipNextPeriodEffectRef.current = false;
+      return;
+    }
     loadData(false);
+  }, [loadData]);
+
+  // "전체 새로고침" — 캐시 무시하고 강제로 다시 수집하면서, 기간 필터도 오늘(24시간)로 초기화
+  const handleFullRefresh = useCallback(() => {
+    skipNextPeriodEffectRef.current = true;
+    setPeriod('24');
+    loadData(true, '24');
   }, [loadData]);
 
   // 카테고리별 미확인(unread) 기사 수 — 사이드바 배지용 (전체 스코프 기준)
@@ -501,7 +515,7 @@ export default function Home() {
         ) : (
         <>
         <Toolbar
-          onRefresh={() => loadData(true)}
+          onRefresh={handleFullRefresh}
           refreshing={refreshing}
           lastUpdated={lastUpdated}
           viewMode={viewMode}
