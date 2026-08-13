@@ -15,17 +15,9 @@ function formatUpdatedAt(iso) {
   });
 }
 
-export default function Toolbar({ onRefresh, refreshing, lastUpdated, viewMode, onViewModeChange, onOpenSidebar }) {
+export default function Toolbar({ onRefresh, refreshing, lastUpdated, viewMode, onViewModeChange }) {
   return (
     <div className="flex flex-wrap items-center gap-3 px-6 pt-2">
-      <button
-        onClick={onOpenSidebar}
-        aria-label="메뉴 열기"
-        className="md:hidden text-(--color-ink) text-lg leading-none cursor-pointer mr-1"
-      >
-        ☰
-      </button>
-
       <button
         onClick={onRefresh}
         disabled={refreshing}
