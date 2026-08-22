@@ -88,35 +88,6 @@ function formatDigestText(dateKey, feedEntries) {
   return lines.join('\n');
 }
 
-function getInitialExpandedState(period, weekGroups, monthGroups) {
-  if (period === 'week' && weekGroups.length > 0) {
-    const latestWeekKey = weekGroups[0][0];
-    const latestDayKey = weekGroups[0][1]?.[0]?.[0];
-    return {
-      expandedMonths: new Set(),
-      expandedWeeks: new Set([latestWeekKey]),
-      expandedDays: new Set(latestDayKey ? [latestDayKey] : []),
-    };
-  }
-
-  if (period === 'month' && monthGroups.length > 0) {
-    const [latestMonthKey, latestMonthDays] = monthGroups[0];
-    const latestWeekKey = `${latestMonthKey}:${getMondayOfWeek(latestMonthDays[0][0])}`;
-    const latestDayKey = `${latestMonthKey}:${latestMonthDays[0][0]}`;
-    return {
-      expandedMonths: new Set([latestMonthKey]),
-      expandedWeeks: new Set([latestWeekKey]),
-      expandedDays: new Set([latestDayKey]),
-    };
-  }
-
-  return {
-    expandedMonths: new Set(),
-    expandedWeeks: new Set(),
-    expandedDays: new Set(),
-  };
-}
-
 /**
  * 눌러서 밀어 움직이는(Push & Drag) 방식의 순서 조정 리스트.
  * 마우스와 모바일 터치 둘 다 Pointer Events 하나로 처리한다.
@@ -225,6 +196,33 @@ function DragHandle({ onPointerDown }) {
   );
 }
 
+/** 스크랩 기사 한 건 — 제목과 URL을 각각 줄바꿈해서(자르지 않고) 보여준다 */
+function ArticleLines({ article, compact }) {
+  return (
+    <div className="min-w-0 flex-1">
+      <a
+        href={article.link}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={[
+          'block font-(family-name:--font-display) text-(--color-ink) hover:text-(--color-wire-blue)',
+          compact ? 'text-sm' : 'text-base font-semibold leading-snug',
+        ].join(' ')}
+      >
+        {article.title}
+      </a>
+      <a
+        href={article.link}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-0.5 block break-all font-(family-name:--font-mono) text-xs text-(--color-ink-faint) hover:text-(--color-wire-blue)"
+      >
+        {article.link}
+      </a>
+    </div>
+  );
+}
+
 /** 하루치 다이제스트 카드. editable=false면 삭제(✕)/순서조정 버튼을 아예 렌더링하지 않음 (확정된 과거 기록 보호) */
 function DayDigestCard({ dateKey, feedEntries, viewMode, editable, isCopied, onCopy, onRemove, onReorderCommit }) {
   return (
@@ -252,85 +250,25 @@ function DayDigestCard({ dateKey, feedEntries, viewMode, editable, isCopied, onC
               <ReorderableArticles
                 articles={articles}
                 onReorderCommit={(ids) => onReorderCommit(feedTitle, ids)}
-                renderItem={(a, dragProps) =>
-                  viewMode === 'list' ? (
-                    <div className="flex items-start gap-2 text-sm py-0.5">
-                      <DragHandle onPointerDown={dragProps.onPointerDown} />
-                      <button
-                        onClick={() => onRemove(a.article_id)}
-                        aria-label="스크랩 해제"
-                        className="mt-0.5 shrink-0 text-(--color-ink-faint) hover:text-(--color-stamp-red) cursor-pointer text-xs"
-                      >
-                        ✕
-                      </button>
-                      <a
-                        href={a.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="min-w-0 truncate font-(family-name:--font-display) text-(--color-ink) hover:text-(--color-wire-blue)"
-                      >
-                        {a.title}
-                      </a>
-                    </div>
-                  ) : (
-                    <div className="flex items-start gap-2 py-1">
-                      <DragHandle onPointerDown={dragProps.onPointerDown} />
-                      <button
-                        onClick={() => onRemove(a.article_id)}
-                        aria-label="스크랩 해제"
-                        className="mt-0.5 shrink-0 text-(--color-ink-faint) hover:text-(--color-stamp-red) cursor-pointer text-sm"
-                      >
-                        ✕
-                      </button>
-                      <div className="min-w-0">
-                        <a
-                          href={a.link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="font-(family-name:--font-display) text-base font-semibold text-(--color-ink) hover:text-(--color-wire-blue) leading-snug"
-                        >
-                          {a.title}
-                        </a>
-                        <p className="mt-0.5 font-(family-name:--font-mono) text-xs text-(--color-ink-faint) truncate">
-                          {a.source} · {a.link}
-                        </p>
-                      </div>
-                    </div>
-                  )
-                }
-              />
-            ) : viewMode === 'list' ? (
-              <ul className="space-y-1.5">
-                {articles.map((a) => (
-                  <li key={a.article_id} className="flex items-start gap-2 text-sm">
-                    <a
-                      href={a.link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="min-w-0 truncate font-(family-name:--font-display) text-(--color-ink) hover:text-(--color-wire-blue)"
+                renderItem={(a, dragProps) => (
+                  <div className={viewMode === 'list' ? 'flex items-start gap-2 py-1' : 'flex items-start gap-2 py-1.5'}>
+                    <DragHandle onPointerDown={dragProps.onPointerDown} />
+                    <button
+                      onClick={() => onRemove(a.article_id)}
+                      aria-label="스크랩 해제"
+                      className="mt-0.5 shrink-0 text-(--color-ink-faint) hover:text-(--color-stamp-red) cursor-pointer text-xs"
                     >
-                      {a.title}
-                    </a>
-                  </li>
-                ))}
-              </ul>
+                      ✕
+                    </button>
+                    <ArticleLines article={a} compact={viewMode === 'list'} />
+                  </div>
+                )}
+              />
             ) : (
-              <div className="space-y-3">
+              <div className={viewMode === 'list' ? 'space-y-2' : 'space-y-3'}>
                 {articles.map((a) => (
                   <div key={a.article_id} className="flex items-start gap-2">
-                    <div className="min-w-0">
-                      <a
-                        href={a.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-(family-name:--font-display) text-base font-semibold text-(--color-ink) hover:text-(--color-wire-blue) leading-snug"
-                      >
-                        {a.title}
-                      </a>
-                      <p className="mt-0.5 font-(family-name:--font-mono) text-xs text-(--color-ink-faint) truncate">
-                        {a.source} · {a.link}
-                      </p>
-                    </div>
+                    <ArticleLines article={a} compact={viewMode === 'list'} />
                   </div>
                 ))}
               </div>
@@ -374,7 +312,9 @@ export default function TodayNews({
     }
     const todayDigest = computeDigestDate(new Date().toISOString());
     if (period === 'week') {
-      const start = addDaysToDateKey(todayDigest, -7);
+      // '주간' 탭은 이번 주만 보여주지 않고, 1주차부터 누적된 주간 묶음이 계속 쌓이도록
+      // 최근 1년치를 대상으로 한다 (weekGroups가 주 단위로 다시 나눠서 접어 보여줌).
+      const start = addDaysToDateKey(todayDigest, -366);
       return picksWithDigest.filter((p) => p.digestDate >= start && p.digestDate <= todayDigest);
     }
     if (period === 'month') {
@@ -429,14 +369,10 @@ export default function TodayNews({
     return [...groups.entries()].sort((a, b) => b[0].localeCompare(a[0]));
   }, [groupedByDay]);
 
-  const initialExpandedState = useMemo(
-    () => getInitialExpandedState(period, weekGroups, monthGroups),
-    [period, weekGroups, monthGroups]
-  );
-
-  const [expandedMonths, setExpandedMonths] = useState(() => initialExpandedState.expandedMonths);
-  const [expandedWeeks, setExpandedWeeks] = useState(() => initialExpandedState.expandedWeeks);
-  const [expandedDays, setExpandedDays] = useState(() => initialExpandedState.expandedDays);
+  // 월/주/일 아코디언은 기본적으로 전부 접힌 상태로 시작한다 (최신 항목을 자동으로 펼쳐두지 않음)
+  const [expandedMonths, setExpandedMonths] = useState(() => new Set());
+  const [expandedWeeks, setExpandedWeeks] = useState(() => new Set());
+  const [expandedDays, setExpandedDays] = useState(() => new Set());
 
   const toggleMonth = useCallback((monthKey) => {
     setExpandedMonths((prev) => {
@@ -649,7 +585,7 @@ export default function TodayNews({
                                     dateKey={dateKey}
                                     feedEntries={feedEntries}
                                     viewMode={viewMode}
-                                    editable={false}
+                                    editable={dateKey === currentOpenDigestDate}
                                     isCopied={copiedKey === dateKey}
                                     onCopy={handleCopy}
                                     onRemove={handleRemove}
@@ -733,7 +669,7 @@ export default function TodayNews({
                                                 dateKey={dateKey}
                                                 feedEntries={feedEntries}
                                                 viewMode={viewMode}
-                                                editable={false}
+                                                editable={dateKey === currentOpenDigestDate}
                                                 isCopied={copiedKey === dateKey}
                                                 onCopy={handleCopy}
                                                 onRemove={handleRemove}
