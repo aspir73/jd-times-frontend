@@ -186,6 +186,33 @@ function DragHandle({ onPointerDown }) {
   );
 }
 
+/** 스크랩 기사 한 건 — 제목과 URL을 각각 줄바꿈해서(자르지 않고) 보여준다 */
+function ArticleLines({ article, compact }) {
+  return (
+    <div className="min-w-0 flex-1">
+      <a
+        href={article.link}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={[
+          'block font-(family-name:--font-display) text-(--color-ink) hover:text-(--color-wire-blue)',
+          compact ? 'text-sm' : 'text-base font-semibold leading-snug',
+        ].join(' ')}
+      >
+        {article.title}
+      </a>
+      <a
+        href={article.link}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="mt-0.5 block break-all font-(family-name:--font-mono) text-xs text-(--color-ink-faint) hover:text-(--color-wire-blue)"
+      >
+        {article.link}
+      </a>
+    </div>
+  );
+}
+
 /** 하루치 다이제스트 카드. editable=false면 삭제(✕)/순서조정 버튼을 아예 렌더링하지 않음 (확정된 과거 기록 보호) */
 function DayDigestCard({ dateKey, feedEntries, viewMode, editable, isCopied, onCopy, onRemove, onReorderCommit }) {
   return (
@@ -213,85 +240,25 @@ function DayDigestCard({ dateKey, feedEntries, viewMode, editable, isCopied, onC
               <ReorderableArticles
                 articles={articles}
                 onReorderCommit={(ids) => onReorderCommit(feedTitle, ids)}
-                renderItem={(a, dragProps) =>
-                  viewMode === 'list' ? (
-                    <div className="flex items-start gap-2 text-sm py-0.5">
-                      <DragHandle onPointerDown={dragProps.onPointerDown} />
-                      <button
-                        onClick={() => onRemove(a.article_id)}
-                        aria-label="스크랩 해제"
-                        className="mt-0.5 shrink-0 text-(--color-ink-faint) hover:text-(--color-stamp-red) cursor-pointer text-xs"
-                      >
-                        ✕
-                      </button>
-                      <a
-                        href={a.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="min-w-0 truncate font-(family-name:--font-display) text-(--color-ink) hover:text-(--color-wire-blue)"
-                      >
-                        {a.title}
-                      </a>
-                    </div>
-                  ) : (
-                    <div className="flex items-start gap-2 py-1">
-                      <DragHandle onPointerDown={dragProps.onPointerDown} />
-                      <button
-                        onClick={() => onRemove(a.article_id)}
-                        aria-label="스크랩 해제"
-                        className="mt-0.5 shrink-0 text-(--color-ink-faint) hover:text-(--color-stamp-red) cursor-pointer text-sm"
-                      >
-                        ✕
-                      </button>
-                      <div className="min-w-0">
-                        <a
-                          href={a.link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="font-(family-name:--font-display) text-base font-semibold text-(--color-ink) hover:text-(--color-wire-blue) leading-snug"
-                        >
-                          {a.title}
-                        </a>
-                        <p className="mt-0.5 font-(family-name:--font-mono) text-xs text-(--color-ink-faint) truncate">
-                          {a.source} · {a.link}
-                        </p>
-                      </div>
-                    </div>
-                  )
-                }
-              />
-            ) : viewMode === 'list' ? (
-              <ul className="space-y-1.5">
-                {articles.map((a) => (
-                  <li key={a.article_id} className="flex items-start gap-2 text-sm">
-                    <a
-                      href={a.link}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="min-w-0 truncate font-(family-name:--font-display) text-(--color-ink) hover:text-(--color-wire-blue)"
+                renderItem={(a, dragProps) => (
+                  <div className={viewMode === 'list' ? 'flex items-start gap-2 py-1' : 'flex items-start gap-2 py-1.5'}>
+                    <DragHandle onPointerDown={dragProps.onPointerDown} />
+                    <button
+                      onClick={() => onRemove(a.article_id)}
+                      aria-label="스크랩 해제"
+                      className="mt-0.5 shrink-0 text-(--color-ink-faint) hover:text-(--color-stamp-red) cursor-pointer text-xs"
                     >
-                      {a.title}
-                    </a>
-                  </li>
-                ))}
-              </ul>
+                      ✕
+                    </button>
+                    <ArticleLines article={a} compact={viewMode === 'list'} />
+                  </div>
+                )}
+              />
             ) : (
-              <div className="space-y-3">
+              <div className={viewMode === 'list' ? 'space-y-2' : 'space-y-3'}>
                 {articles.map((a) => (
                   <div key={a.article_id} className="flex items-start gap-2">
-                    <div className="min-w-0">
-                      <a
-                        href={a.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-(family-name:--font-display) text-base font-semibold text-(--color-ink) hover:text-(--color-wire-blue) leading-snug"
-                      >
-                        {a.title}
-                      </a>
-                      <p className="mt-0.5 font-(family-name:--font-mono) text-xs text-(--color-ink-faint) truncate">
-                        {a.source} · {a.link}
-                      </p>
-                    </div>
+                    <ArticleLines article={a} compact={viewMode === 'list'} />
                   </div>
                 ))}
               </div>
@@ -336,7 +303,9 @@ export default function TodayNews({
     }
     const todayDigest = computeDigestDate(new Date().toISOString());
     if (period === 'week') {
-      const start = addDaysToDateKey(todayDigest, -7);
+      // '주간' 탭은 이번 주만 보여주지 않고, 1주차부터 누적된 주간 묶음이 계속 쌓이도록
+      // 최근 1년치를 대상으로 한다 (아래 weekGroups가 주 단위로 다시 나눠서 접어 보여줌).
+      const start = addDaysToDateKey(todayDigest, -366);
       return picksWithDigest.filter((p) => p.digestDate >= start && p.digestDate <= todayDigest);
     }
     if (period === 'month') {
@@ -369,9 +338,11 @@ export default function TodayNews({
       .map(([dateKey, feedMap]) => [dateKey, sortFeedEntries(feedMap)]);
   }, [searched]);
 
-  // 최상단 = 가장 최근 날짜(지금까지와 동일하게 펼쳐서 표시), 나머지는 주 단위로 묶어서 접어둠
-  const topEntry = groupedByDay[0] ?? null;
-  const restDays = groupedByDay.slice(1);
+  // '오늘' 탭/특정 날짜 지정일 때만 최상단 날짜를 항상 펼쳐서 보여준다 (그 하루만 보는 화면이므로).
+  // '주간'/'월간' 탭에서는 오늘 것도 다른 날짜와 동일하게 주 단위 묶음에 넣어 기본적으로 접어둔다.
+  const pinTopEntryExpanded = period === 'today' || isDateMode;
+  const topEntry = pinTopEntryExpanded ? (groupedByDay[0] ?? null) : null;
+  const restDays = pinTopEntryExpanded ? groupedByDay.slice(1) : groupedByDay;
 
   const weekGroups = useMemo(() => {
     const groups = new Map(); // 그 주 월요일 날짜 -> [ [dateKey, feedEntries], ... ] (최신순)
@@ -518,7 +489,7 @@ export default function TodayNews({
           </div>
         )}
 
-        {/* 최상단: 가장 최근 날짜 — 지금까지와 동일하게 항상 펼쳐서 표시, 오늘 것이면 삭제 가능 */}
+        {/* '오늘' 탭/특정 날짜 지정일 때만: 그 하루를 항상 펼쳐서 표시, 오늘 것이면 삭제 가능 */}
         {!loading && !error && topEntry && (
           <DayDigestCard
             dateKey={topEntry[0]}
@@ -532,7 +503,7 @@ export default function TodayNews({
           />
         )}
 
-        {/* 지난 주들: 주 단위로 접어서 표시, 클릭하면 펼쳐짐. 확정된 과거 기록이라 삭제 버튼 없음 */}
+        {/* 주 단위로 묶어 기본적으로 접어서 표시, 클릭하면 펼쳐짐. 오늘 것만 삭제/순서조정 가능(9시 이전 진행 중인 다이제스트) */}
         {!loading &&
           !error &&
           weekGroups.map(([mondayKey, days]) => {
@@ -558,11 +529,11 @@ export default function TodayNews({
                         dateKey={dateKey}
                         feedEntries={feedEntries}
                         viewMode={viewMode}
-                        editable={false}
+                        editable={dateKey === currentOpenDigestDate}
                         isCopied={copiedKey === dateKey}
                         onCopy={handleCopy}
                         onRemove={handleRemove}
-            onReorderCommit={handleReorderCommit}
+                        onReorderCommit={handleReorderCommit}
                       />
                     ))}
                   </div>
