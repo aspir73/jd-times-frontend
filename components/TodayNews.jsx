@@ -321,8 +321,15 @@ export default function TodayNews({
       const start = addDaysToDateKey(todayDigest, -31);
       return picksWithDigest.filter((p) => p.digestDate >= start && p.digestDate <= todayDigest);
     }
-    // 'today'
-    return picksWithDigest.filter((p) => p.digestDate === todayDigest);
+    // 'today': "현재 진행 중인" 다이제스트(todayDigest)에 아직 스크랩이 하나도 없으면
+    // (오전 9시가 막 지나 새 다이제스트로 넘어간 직후 등) 화면이 비어 보이는 대신,
+    // 가장 최근에 실제로 스크랩이 존재하는 다이제스트 날짜를 보여준다.
+    if (picksWithDigest.length === 0) return [];
+    const latestDigest = picksWithDigest.reduce(
+      (max, p) => (p.digestDate > max ? p.digestDate : max),
+      picksWithDigest[0].digestDate
+    );
+    return picksWithDigest.filter((p) => p.digestDate === latestDigest);
   }, [picksWithDigest, period, isDateMode]);
 
   // 키워드 검색 (선택된 기간 범위 안에서)
