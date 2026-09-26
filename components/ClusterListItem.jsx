@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { RibbonIcon } from './icons';
+import { safeHref } from '@/lib/safeLink';
 
 const TIME_ZONE = 'Asia/Seoul';
 
@@ -87,7 +88,7 @@ export default function ClusterListItem({ cluster, onToggleRead, onToggleBookmar
         </span>
 
         <a
-          href={primaryArticle.link}
+          href={safeHref(primaryArticle.link)}
           target="_blank"
           rel="noopener noreferrer"
           onClick={() => !primaryArticle.isRead && onToggleRead(primaryArticle)}
@@ -132,7 +133,7 @@ export default function ClusterListItem({ cluster, onToggleRead, onToggleBookmar
             >
               <RowIcons article={a} onToggleBookmark={onToggleBookmark} onTogglePick={onTogglePick} />
               <a
-                href={a.link}
+                href={safeHref(a.link)}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => !a.isRead && onToggleRead(a)}

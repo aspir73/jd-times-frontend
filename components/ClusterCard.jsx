@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { RibbonIcon } from './icons';
+import { safeHref } from '@/lib/safeLink';
 
 const TIME_ZONE = 'Asia/Seoul';
 
@@ -84,7 +85,7 @@ function ArticleRow({ article, variant, onToggleRead, onToggleBookmark, onToggle
       </div>
 
       <a
-        href={article.link}
+        href={safeHref(article.link)}
         target="_blank"
         rel="noopener noreferrer"
         onClick={() => !article.isRead && onToggleRead(article)}

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { computeDigestDate, addDaysToDateKey } from '@/lib/digestDate';
+import { safeHref } from '@/lib/safeLink';
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -201,7 +202,7 @@ function ArticleLines({ article, compact }) {
   return (
     <div className="min-w-0 flex-1">
       <a
-        href={article.link}
+        href={safeHref(article.link)}
         target="_blank"
         rel="noopener noreferrer"
         className={[
@@ -212,7 +213,7 @@ function ArticleLines({ article, compact }) {
         {article.title}
       </a>
       <a
-        href={article.link}
+        href={safeHref(article.link)}
         target="_blank"
         rel="noopener noreferrer"
         className="mt-0.5 block break-all font-(family-name:--font-mono) text-xs text-(--color-ink-faint) hover:text-(--color-wire-blue)"
