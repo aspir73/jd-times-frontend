@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   buildGoogleNewsUrl,
   buildQuery,
@@ -10,13 +10,19 @@ import {
 
 /**
  * 키워드를 칩 형태로 입력/삭제하는 입력창.
- * Enter 또는 쉼표로 추가, 입력창이 비었을 때 Backspace로 마지막 칩 삭제, 포커스를 벗어나면 입력 중인 단어도 추가.
+ * Enter·쉼표·"추가" 버튼으로 추가, 입력창이 비었을 때 Backspace로 마지막 칩 삭제, 포커스를 벗어나면 입력 중인 단어도 추가.
+ *
+ * 모바일 키보드 대응:
+ * - 한글 조합 중 Enter는 PC 크롬에선 keydown이 두 번(조합 중 + 조합 끝) 오지만 모바일에선 조합 중 한 번만 온다.
+ *   그래서 조합 중 Enter는 "조합이 끝나면 추가"로 예약해두고 compositionend에서 처리한다.
+ * - 모바일에선 쉼표 keydown이 key='Unidentified'로 와서 감지가 안 되므로 입력값(onChange)에서 쉼표를 찾는다.
  */
 function KeywordChipInput({ label, hint, terms, onChange, tone = 'blue', placeholder }) {
   const [draft, setDraft] = useState('');
+  const commitAfterCompositionRef = useRef(false);
 
-  const commit = () => {
-    const next = draft
+  const commit = (value = draft) => {
+    const next = value
       .split(',')
       .map((t) => t.replace(/"/g, '').trim())
       .filter((t) => t && !terms.includes(t));
@@ -24,15 +30,30 @@ function KeywordChipInput({ label, hint, terms, onChange, tone = 'blue', placeho
     setDraft('');
   };
 
+  const handleChange = (e) => {
+    const value = e.target.value;
+    if (value.includes(',') && !e.nativeEvent.isComposing) commit(value);
+    else setDraft(value);
+  };
+
   const handleKeyDown = (e) => {
-    // 한글 조합 중 Enter는 조합 확정용이므로 무시 (안 그러면 마지막 글자가 따로 칩이 된다)
-    if (e.nativeEvent.isComposing) return;
-    if (e.key === 'Enter' || e.key === ',') {
+    if (e.key === 'Enter') {
+      // 조합 중이든 아니든 Enter로 폼이 제출(모달 닫힘)되지 않게 막는다
+      e.preventDefault();
+      if (e.nativeEvent.isComposing) commitAfterCompositionRef.current = true;
+      else commit();
+    } else if (e.key === ',' && !e.nativeEvent.isComposing) {
       e.preventDefault();
       commit();
     } else if (e.key === 'Backspace' && !draft && terms.length > 0) {
       onChange(terms.slice(0, -1));
     }
+  };
+
+  const handleCompositionEnd = (e) => {
+    if (!commitAfterCompositionRef.current) return;
+    commitAfterCompositionRef.current = false;
+    commit(e.currentTarget.value);
   };
 
   const chipClass =
@@ -66,12 +87,24 @@ function KeywordChipInput({ label, hint, terms, onChange, tone = 'blue', placeho
         ))}
         <input
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
+          onChange={handleChange}
           onKeyDown={handleKeyDown}
-          onBlur={commit}
+          onCompositionEnd={handleCompositionEnd}
+          onBlur={(e) => commit(e.target.value)}
+          enterKeyHint="enter"
           placeholder={terms.length === 0 ? placeholder : ''}
-          className="flex-1 min-w-24 bg-transparent py-0.5 text-sm outline-none"
+          className="flex-1 min-w-24 bg-transparent py-0.5 text-base sm:text-sm outline-none"
         />
+        {/* 터치 환경에서 확실하게 추가할 수 있는 버튼 (mousedown 기본동작을 막아 입력창 포커스/키보드 유지) */}
+        <button
+          type="button"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => commit()}
+          disabled={!draft.trim()}
+          className="shrink-0 rounded border border-(--color-rule) px-2 py-0.5 text-xs text-(--color-ink-soft) hover:bg-(--color-ink)/5 cursor-pointer disabled:opacity-40 disabled:cursor-default"
+        >
+          추가
+        </button>
       </div>
     </div>
   );
