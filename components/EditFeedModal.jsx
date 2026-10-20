@@ -1,20 +1,113 @@
 'use client';
 
 import { useState } from 'react';
+import {
+  buildGoogleNewsUrl,
+  buildQuery,
+  extractQueryFromUrl,
+  parseQuery,
+} from '@/lib/googleNewsQuery';
+
+/**
+ * 키워드를 칩 형태로 입력/삭제하는 입력창.
+ * Enter 또는 쉼표로 추가, 입력창이 비었을 때 Backspace로 마지막 칩 삭제, 포커스를 벗어나면 입력 중인 단어도 추가.
+ */
+function KeywordChipInput({ label, hint, terms, onChange, tone = 'blue', placeholder }) {
+  const [draft, setDraft] = useState('');
+
+  const commit = () => {
+    const next = draft
+      .split(',')
+      .map((t) => t.replace(/"/g, '').trim())
+      .filter((t) => t && !terms.includes(t));
+    if (next.length > 0) onChange([...terms, ...new Set(next)]);
+    setDraft('');
+  };
+
+  const handleKeyDown = (e) => {
+    // 한글 조합 중 Enter는 조합 확정용이므로 무시 (안 그러면 마지막 글자가 따로 칩이 된다)
+    if (e.nativeEvent.isComposing) return;
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      commit();
+    } else if (e.key === 'Backspace' && !draft && terms.length > 0) {
+      onChange(terms.slice(0, -1));
+    }
+  };
+
+  const chipClass =
+    tone === 'red'
+      ? 'border-(--color-stamp-red)/40 bg-(--color-stamp-red)/10 text-(--color-stamp-red)'
+      : 'border-(--color-wire-blue)/40 bg-(--color-wire-blue)/10 text-(--color-wire-blue)';
+
+  return (
+    <div>
+      <div className="flex items-baseline justify-between mb-1">
+        <label className="text-xs font-medium text-(--color-ink-soft)">{label}</label>
+        <span className="text-[11px] text-(--color-ink-faint)">{hint}</span>
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5 rounded border border-(--color-rule) px-2 py-1.5 bg-(--color-paper) focus-within:border-(--color-wire-blue)">
+        {terms.map((term) => (
+          <span
+            key={term}
+            className={`inline-flex items-center gap-1 rounded border px-2 py-0.5 text-xs ${chipClass}`}
+          >
+            {tone === 'red' && '−'}
+            {term}
+            <button
+              type="button"
+              onClick={() => onChange(terms.filter((t) => t !== term))}
+              aria-label={`${term} 삭제`}
+              className="opacity-60 hover:opacity-100 cursor-pointer leading-none"
+            >
+              ✕
+            </button>
+          </span>
+        ))}
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={handleKeyDown}
+          onBlur={commit}
+          placeholder={terms.length === 0 ? placeholder : ''}
+          className="flex-1 min-w-24 bg-transparent py-0.5 text-sm outline-none"
+        />
+      </div>
+    </div>
+  );
+}
 
 export default function EditFeedModal({ feed, onClose, onSave, onDelete }) {
   const [title, setTitle] = useState(feed?.title || '');
   const [category, setCategory] = useState(feed?.category || '');
   const [rssUrl, setRssUrl] = useState(feed?.rss_url || '');
+  // 구글 뉴스 검색 피드면 RSS 주소의 q 파라미터를 풀어서 키워드 그룹으로 편집한다
+  // (주소 형식이 달라 못 읽어도 키워드 타입 피드면 저장된 keyword로 대신 채운다)
+  const urlQuery = extractQueryFromUrl(feed?.rss_url);
+  const isGoogleSearch = urlQuery !== null || feed?.type === 'GOOGLE_KEYWORD';
+  const initialQuery = urlQuery || feed?.keyword || '';
+  const [terms, setTerms] = useState(() => parseQuery(initialQuery || ''));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   if (!feed) return null;
 
+  const query = buildQuery(terms);
+  const effectiveRssUrl = isGoogleSearch ? buildGoogleNewsUrl(query, feed.rss_url) : rssUrl.trim();
+  const setGroup = (key) => (next) => setTerms((t) => ({ ...t, [key]: next }));
+
   const handleSave = async (e) => {
     e.preventDefault();
-    if (!title.trim() || !rssUrl.trim()) {
-      setError('이름과 RSS 주소는 비워둘 수 없습니다.');
+    if (!title.trim()) {
+      setError('피드 이름은 비워둘 수 없습니다.');
+      return;
+    }
+    if (isGoogleSearch && terms.all.length === 0 && terms.any.length === 0) {
+      setError('"모두 포함" 또는 "하나라도 포함"에 키워드를 하나 이상 넣어주세요.');
+      return;
+    }
+    if (!effectiveRssUrl) {
+      setError('RSS 주소는 비워둘 수 없습니다.');
       return;
     }
     try {
@@ -23,7 +116,8 @@ export default function EditFeedModal({ feed, onClose, onSave, onDelete }) {
       await onSave(feed.id, {
         title: title.trim(),
         category: category.trim() || '일반',
-        rssUrl: rssUrl.trim(),
+        rssUrl: effectiveRssUrl,
+        ...(isGoogleSearch && { keyword: query }),
       });
       onClose();
     } catch (err) {
@@ -55,7 +149,7 @@ export default function EditFeedModal({ feed, onClose, onSave, onDelete }) {
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-lg bg-(--color-paper-raised) border border-(--color-rule) shadow-xl"
+        className="w-full max-w-md max-h-[90vh] flex flex-col rounded-lg bg-(--color-paper-raised) border border-(--color-rule) shadow-xl"
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-(--color-rule)">
           <h2 className="font-(family-name:--font-display) text-lg font-semibold">피드 관리</h2>
@@ -68,7 +162,7 @@ export default function EditFeedModal({ feed, onClose, onSave, onDelete }) {
           </button>
         </div>
 
-        <form onSubmit={handleSave} className="px-5 py-4 space-y-3">
+        <form onSubmit={handleSave} className="px-5 py-4 space-y-3 overflow-y-auto">
           <div>
             <label className="block text-xs font-medium text-(--color-ink-soft) mb-1">
               피드 이름
@@ -91,16 +185,59 @@ export default function EditFeedModal({ feed, onClose, onSave, onDelete }) {
             />
           </div>
 
-          <div>
-            <label className="block text-xs font-medium text-(--color-ink-soft) mb-1">
-              RSS 주소
-            </label>
-            <input
-              value={rssUrl}
-              onChange={(e) => setRssUrl(e.target.value)}
-              className="w-full rounded border border-(--color-rule) px-3 py-2 text-sm bg-(--color-paper) font-(family-name:--font-mono) focus:border-(--color-wire-blue)"
-            />
-          </div>
+          {isGoogleSearch ? (
+            <div className="space-y-3 rounded border border-(--color-rule) p-3">
+              <div>
+                <div className="text-xs font-medium text-(--color-ink-soft) mb-1">현재 검색 키워드</div>
+                <div className="rounded bg-(--color-paper) border border-(--color-rule) px-3 py-2 text-sm font-(family-name:--font-mono) break-all">
+                  {query || <span className="text-(--color-ink-faint)">(비어 있음)</span>}
+                </div>
+              </div>
+
+              <KeywordChipInput
+                label="모두 포함"
+                hint="모든 단어가 들어간 기사"
+                terms={terms.all}
+                onChange={setGroup('all')}
+                placeholder="예: LG전자"
+              />
+              <KeywordChipInput
+                label="하나라도 포함"
+                hint="이 중 하나 이상 들어간 기사"
+                terms={terms.any}
+                onChange={setGroup('any')}
+                placeholder="예: 로봇, 가전"
+              />
+              <KeywordChipInput
+                label="제외"
+                hint="이 단어가 들어간 기사는 제외"
+                terms={terms.exclude}
+                onChange={setGroup('exclude')}
+                tone="red"
+                placeholder="예: 주가"
+              />
+
+              <p className="text-[11px] text-(--color-ink-faint)">
+                Enter 또는 쉼표로 추가 · 띄어쓰기가 있는 단어는 정확한 구문으로 검색됩니다
+              </p>
+
+              <details className="text-[11px] text-(--color-ink-faint)">
+                <summary className="cursor-pointer">RSS 주소 보기</summary>
+                <div className="mt-1 font-(family-name:--font-mono) break-all">{effectiveRssUrl}</div>
+              </details>
+            </div>
+          ) : (
+            <div>
+              <label className="block text-xs font-medium text-(--color-ink-soft) mb-1">
+                RSS 주소
+              </label>
+              <input
+                value={rssUrl}
+                onChange={(e) => setRssUrl(e.target.value)}
+                className="w-full rounded border border-(--color-rule) px-3 py-2 text-sm bg-(--color-paper) font-(family-name:--font-mono) focus:border-(--color-wire-blue)"
+              />
+            </div>
+          )}
 
           {error && <p className="text-xs text-(--color-stamp-red)">{error}</p>}
 
