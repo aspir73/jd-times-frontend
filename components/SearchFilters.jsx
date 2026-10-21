@@ -2,6 +2,7 @@
 
 const PERIOD_OPTIONS = [
   { value: 'ALL', label: '전체 기간' },
+  { value: '12', label: '오늘(12시간)' },
   { value: '24', label: '오늘(24시간)' },
   { value: '72', label: '최근 3일' },
   { value: '168', label: '최근 7일' },
