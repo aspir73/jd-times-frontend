@@ -26,6 +26,7 @@ import {
 } from '@/lib/api';
 
 const VIEW_MODE_KEY = 'jdtimes:viewMode';
+const DEFAULT_PERIOD = '12'; // 기본 표시 기간: 오늘(12시간) — 첫 로드 & "전체 새로고침" 시 이 값으로
 
 function flattenArticles(cluster) {
   return [cluster.primaryArticle, ...cluster.relatedArticles];
@@ -38,7 +39,7 @@ export default function Home() {
   const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState('');
   const [lastUpdated, setLastUpdated] = useState(null);
-  // "전체 새로고침"이 기간을 오늘(24시간)로 바꾸면서 이미 강제 재조회를 트리거했을 때,
+  // "전체 새로고침"이 기간을 기본값(DEFAULT_PERIOD)으로 바꾸면서 이미 강제 재조회를 트리거했을 때,
   // 아래 기간-변경 감지 effect가 또 한 번(force 없이) 중복 조회하지 않도록 건너뛰는 플래그
   const skipNextPeriodEffectRef = useRef(false);
 
@@ -48,7 +49,7 @@ export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [query, setQuery] = useState('');
-  const [period, setPeriod] = useState('24'); // 기본 표시 기간: 오늘(24시간)
+  const [period, setPeriod] = useState(DEFAULT_PERIOD);
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [feedFilter, setFeedFilter] = useState('ALL');
 
@@ -105,12 +106,14 @@ export default function Home() {
     loadData(false);
   }, [loadData]);
 
-  // "전체 새로고침" — 캐시 무시하고 강제로 다시 수집하면서, 기간 필터도 오늘(24시간)로 초기화
+  // "전체 새로고침" — 캐시 무시하고 강제로 다시 수집하면서, 기간 필터도 기본값으로 초기화
   const handleFullRefresh = useCallback(() => {
-    skipNextPeriodEffectRef.current = true;
-    setPeriod('24');
-    loadData(true, '24');
-  }, [loadData]);
+    // 이미 기본 기간이면 period가 안 바뀌어 effect가 돌지 않으므로, 그때 플래그를 세우면
+    // 다음번 기간 변경 조회가 잘못 건너뛰어진다 — 실제로 바뀔 때만 세운다
+    if (period !== DEFAULT_PERIOD) skipNextPeriodEffectRef.current = true;
+    setPeriod(DEFAULT_PERIOD);
+    loadData(true, DEFAULT_PERIOD);
+  }, [loadData, period]);
 
   // 카테고리별 미확인(unread) 기사 수 — 사이드바 배지용 (전체 스코프 기준)
   const unreadByCategory = useMemo(() => {
