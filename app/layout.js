@@ -1,5 +1,6 @@
 import "./globals.css";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
+import AuthProvider from "@/components/AuthProvider";
 
 export const metadata = {
   title: "JD Times",
@@ -33,7 +34,7 @@ export default function RootLayout({ children }) {
         />
       </head>
       <body>
-        {children}
+        <AuthProvider>{children}</AuthProvider>
         <ServiceWorkerRegister />
       </body>
     </html>

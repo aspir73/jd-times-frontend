@@ -1,6 +1,8 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
+import { useAuth } from '@/components/AuthProvider';
 
 function groupFeedsByCategory(feeds) {
   const map = new Map();
@@ -26,6 +28,7 @@ export default function Sidebar({
   onSelectToday,
   pickedCount,
 }) {
+  const { user, logout } = useAuth() || {};
   const grouped = useMemo(() => groupFeedsByCategory(feeds), [feeds]);
   const [collapsed, setCollapsed] = useState({});
 
@@ -188,13 +191,39 @@ export default function Sidebar({
         </div>
       </nav>
 
-      <div className="p-3 border-t border-(--color-rule)">
+      <div className="p-3 border-t border-(--color-rule) space-y-3">
         <button
           onClick={onAddFeedClick}
           className="w-full rounded border border-(--color-ink) text-(--color-ink) text-sm py-2 font-medium hover:bg-(--color-ink) hover:text-(--color-paper) transition-colors cursor-pointer"
         >
           + 피드 추가
         </button>
+
+        {user && (
+          <div className="flex items-center gap-2 px-1">
+            {user.picture ? (
+              // eslint-disable-next-line @next/next/no-img-element -- Google 프로필 사진(외부 도메인)이라 next/image 설정 없이 그대로 표시
+              <img src={user.picture} alt="" referrerPolicy="no-referrer" className="h-7 w-7 rounded-full shrink-0" />
+            ) : (
+              <span className="h-7 w-7 rounded-full shrink-0 bg-(--color-ink) text-(--color-paper) text-xs flex items-center justify-center">
+                {(user.name || user.email || '?').slice(0, 1)}
+              </span>
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-medium truncate">{user.name || user.email}</p>
+              <div className="flex gap-2 text-[11px]">
+                {user.role === 'admin' && (
+                  <Link href="/admin" className="text-(--color-wire-blue) hover:underline">
+                    어드민
+                  </Link>
+                )}
+                <button onClick={logout} className="text-(--color-ink-faint) hover:text-(--color-ink) cursor-pointer">
+                  로그아웃
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       </aside>
     </>
