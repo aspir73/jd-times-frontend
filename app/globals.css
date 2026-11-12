@@ -16,6 +16,36 @@
   --font-display: 'Source Serif 4', 'Noto Serif KR', Georgia, serif;
   --font-sans: 'Pretendard', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* PC 앱의 커스텀 제목 표시줄 높이 (Window Controls Overlay 모드에서만 0이 아님) */
+  --titlebar-h: 0px;
+}
+
+/* --- PC 앱 제목 표시줄 (Window Controls Overlay) ---
+   브라우저 기본 제목 표시줄을 없애고 그 자리에 앱이 그린 바를 둔다. 오른쪽 창 조절 버튼(최소화/닫기) 영역은
+   titlebar-area-* 값이 비켜주고, 그 부분은 매니페스트 theme_color(잉크색)로 칠해져 바와 이어진다. */
+.app-titlebar {
+  display: none;
+}
+
+@media (display-mode: window-controls-overlay) {
+  :root {
+    --titlebar-h: env(titlebar-area-height, 33px);
+  }
+  body {
+    padding-top: var(--titlebar-h);
+  }
+  .app-titlebar {
+    display: flex;
+    position: fixed;
+    top: env(titlebar-area-y, 0);
+    left: env(titlebar-area-x, 0);
+    width: env(titlebar-area-width, 100%);
+    height: var(--titlebar-h);
+    z-index: 60;
+    -webkit-app-region: drag;
+    app-region: drag;
+  }
 }
 
 @theme inline {

@@ -45,11 +45,13 @@ export default function Sidebar({
       )}
       <aside
         className={[
-          'w-64 shrink-0 border-r border-(--color-rule) bg-(--color-paper-raised) h-screen',
-          'fixed inset-y-0 left-0 z-40 flex flex-col transition-transform duration-200',
-          'md:sticky md:top-0 md:translate-x-0',
+          'w-64 shrink-0 border-r border-(--color-rule) bg-(--color-paper-raised)',
+          'fixed left-0 z-40 flex flex-col transition-transform duration-200',
+          'md:sticky md:translate-x-0',
           open ? 'translate-x-0' : '-translate-x-full',
         ].join(' ')}
+        // PC 앱의 커스텀 제목 표시줄이 있으면 그 아래부터 화면 끝까지 (없으면 --titlebar-h는 0)
+        style={{ top: 'var(--titlebar-h)', height: 'calc(100dvh - var(--titlebar-h))' }}
       >
         <div className="px-5 pt-6 pb-4 border-b border-(--color-rule) flex items-start justify-between">
           <div>

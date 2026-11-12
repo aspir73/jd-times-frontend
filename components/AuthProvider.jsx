@@ -51,7 +51,7 @@ function Masthead() {
 
 function CenteredCard({ children }) {
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-(--color-paper)">
+    <div className="min-h-[calc(100dvh-var(--titlebar-h))] flex items-center justify-center px-4 bg-(--color-paper)">
       <div className="w-full max-w-sm rounded-lg border border-(--color-rule) bg-(--color-paper-raised) px-6 py-8 shadow-sm">
         <Masthead />
         {children}

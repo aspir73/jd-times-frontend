@@ -8,6 +8,9 @@ export default function manifest() {
     start_url: '/',
     scope: '/',
     display: 'standalone',
+    // PC 앱(Chrome/Edge 설치)에서 브라우저 기본 제목 표시줄(사이트 주소 노출) 대신 앱이 직접 그린 제목 표시줄을 쓴다.
+    // 지원하지 않는 환경(폰, Safari 등)은 standalone으로 동작
+    display_override: ['window-controls-overlay', 'standalone'],
     background_color: '#eceeea',
     theme_color: '#1c232e',
     icons: [

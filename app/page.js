@@ -467,7 +467,7 @@ export default function Home() {
   const ClusterComponent = viewMode === 'list' ? ClusterListItem : ClusterCard;
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-[calc(100dvh-var(--titlebar-h))]">
       <Sidebar
         feeds={feeds}
         unreadByCategory={unreadByCategory}
