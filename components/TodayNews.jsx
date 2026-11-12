@@ -297,7 +297,7 @@ export default function TodayNews({
 
   const isDateMode = DATE_RE.test(period);
 
-  // 오전 9시 기준으로 아직 "확정되지 않은" 현재 진행 중인 다이제스트 날짜만 삭제 가능
+  // 오전 10시 기준으로 아직 "확정되지 않은" 현재 진행 중인 다이제스트 날짜만 삭제 가능
   const currentOpenDigestDate = computeDigestDate(new Date().toISOString());
 
   // 스크랩마다 다이제스트 날짜 부여 (서버에 이미 있으면 그대로, 없으면 옛 데이터 대비 계산)
@@ -323,7 +323,7 @@ export default function TodayNews({
       return picksWithDigest.filter((p) => p.digestDate >= start && p.digestDate <= todayDigest);
     }
     // 'today': "현재 진행 중인" 다이제스트(todayDigest)에 아직 스크랩이 하나도 없으면
-    // (오전 9시가 막 지나 새 다이제스트로 넘어간 직후 등) 화면이 비어 보이는 대신,
+    // (오전 10시가 막 지나 새 다이제스트로 넘어간 직후 등) 화면이 비어 보이는 대신,
     // 가장 최근에 실제로 스크랩이 존재하는 다이제스트 날짜를 보여준다.
     if (picksWithDigest.length === 0) return [];
     const latestDigest = picksWithDigest.reduce(
