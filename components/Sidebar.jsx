@@ -21,6 +21,7 @@ export default function Sidebar({
   selected,
   onSelect,
   onAddFeedClick,
+  onManageFeedsClick,
   onEditFeedClick,
   open,
   onClose,
@@ -106,7 +107,20 @@ export default function Sidebar({
           )}
         </button>
 
-        <div className="mt-4 space-y-1">
+        <div className="mt-5 mb-1 flex items-center justify-between px-1">
+          <span className="font-(family-name:--font-mono) text-[10px] font-semibold uppercase tracking-wider text-(--color-ink-faint)">
+            구독 피드 {feeds.length > 0 && feeds.length}
+          </span>
+          {feeds.length > 0 && (
+            <button
+              onClick={() => { onManageFeedsClick(); onClose?.(); }}
+              className="rounded px-1.5 py-0.5 text-[11px] text-(--color-wire-blue) hover:bg-(--color-wire-blue)/10 cursor-pointer"
+            >
+              편집
+            </button>
+          )}
+        </div>
+        <div className="space-y-1">
           {[...grouped.entries()].map(([category, categoryFeeds]) => {
             const isCollapsed = collapsed[category];
             const isSelectedCategory =
@@ -176,9 +190,11 @@ export default function Sidebar({
                             )}
                           </button>
                           <button
-                            onClick={() => onEditFeedClick(feed)}
-                            aria-label={`${feed.title} 피드 관리`}
-                            className="shrink-0 px-1.5 text-(--color-ink-faint) opacity-0 group-hover:opacity-100 hover:text-(--color-wire-blue) cursor-pointer text-xs transition-opacity"
+                            onClick={() => { onEditFeedClick(feed); onClose?.(); }}
+                            aria-label={`${feed.title} 피드 편집`}
+                            title="피드 편집"
+                            // 마우스 환경에선 마우스를 올렸을 때만, 터치 환경(hover 없음)에선 항상 보이게
+                            className="shrink-0 px-1.5 py-1 text-(--color-ink-faint) opacity-0 group-hover:opacity-100 focus-visible:opacity-100 [@media(hover:none)]:opacity-70 hover:text-(--color-wire-blue) cursor-pointer text-xs transition-opacity"
                           >
                             ✎
                           </button>
@@ -194,12 +210,20 @@ export default function Sidebar({
       </nav>
 
       <div className="p-3 border-t border-(--color-rule) space-y-3">
-        <button
-          onClick={onAddFeedClick}
-          className="w-full rounded border border-(--color-ink) text-(--color-ink) text-sm py-2 font-medium hover:bg-(--color-ink) hover:text-(--color-paper) transition-colors cursor-pointer"
-        >
-          + 피드 추가
-        </button>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => { onAddFeedClick(); onClose?.(); }}
+            className="rounded border border-(--color-ink) bg-(--color-ink) text-(--color-paper) text-sm py-2 font-medium hover:opacity-90 transition-opacity cursor-pointer"
+          >
+            + 피드 추가
+          </button>
+          <button
+            onClick={() => { onManageFeedsClick(); onClose?.(); }}
+            className="rounded border border-(--color-ink) text-(--color-ink) text-sm py-2 font-medium hover:bg-(--color-ink) hover:text-(--color-paper) transition-colors cursor-pointer"
+          >
+            ⚙ 피드 관리
+          </button>
+        </div>
 
         {user && (
           <div className="flex items-center gap-2 px-1">

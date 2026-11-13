@@ -91,10 +91,12 @@ export default function UserFeedsPanel({ user, onClose, onChanged }) {
           await afterChange();
         }}
         existingCategories={categories}
+        feeds={feeds}
       />
       <EditFeedModal
         key={editing?.id ?? 'none'}
         feed={editing}
+        categories={categories}
         onClose={() => setEditing(null)}
         onSave={async (feedId, payload) => {
           await updateAdminUserFeed(user.id, feedId, payload);

@@ -9,8 +9,7 @@ import SelectionBar from '@/components/SelectionBar';
 import ClusterCard from '@/components/ClusterCard';
 import ClusterListItem from '@/components/ClusterListItem';
 import TodayNews from '@/components/TodayNews';
-import AddFeedModal from '@/components/AddFeedModal';
-import EditFeedModal from '@/components/EditFeedModal';
+import FeedManagerSheet from '@/components/feeds/FeedManagerSheet';
 import {
   getFeeds,
   getClusters,
@@ -57,8 +56,8 @@ export default function Home() {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
 
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingFeed, setEditingFeed] = useState(null);
+  // 피드 관리 창: null(닫힘) | 'list' | 'add' | { edit: feedId }
+  const [feedManagerView, setFeedManagerView] = useState(null);
 
   // 저장된 보기 모드 복원 (마운트 후 1회 — SSR과의 하이드레이션 불일치 방지 위해 effect에서 처리)
   useEffect(() => {
@@ -474,8 +473,9 @@ export default function Home() {
         unreadByFeed={unreadByFeed}
         selected={selected}
         onSelect={handleSidebarSelect}
-        onAddFeedClick={() => setModalOpen(true)}
-        onEditFeedClick={setEditingFeed}
+        onAddFeedClick={() => setFeedManagerView('add')}
+        onManageFeedsClick={() => setFeedManagerView('list')}
+        onEditFeedClick={(feed) => setFeedManagerView({ edit: feed.id })}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         pageMode={pageMode}
@@ -580,7 +580,7 @@ export default function Home() {
                 왼쪽 메뉴의 &ldquo;피드 추가&rdquo;로 키워드나 언론사를 등록해보세요.
               </p>
               <button
-                onClick={() => setModalOpen(true)}
+                onClick={() => setFeedManagerView('add')}
                 className="rounded bg-(--color-ink) text-(--color-paper) px-4 py-2 text-sm cursor-pointer"
               >
                 + 피드 추가하기
@@ -627,20 +627,17 @@ export default function Home() {
         )}
       </main>
 
-      <AddFeedModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onSubmit={handleAddFeed}
-        existingCategories={existingCategories}
-      />
-
-      <EditFeedModal
-        key={editingFeed?.id ?? 'none'}
-        feed={editingFeed}
-        onClose={() => setEditingFeed(null)}
-        onSave={handleUpdateFeed}
-        onDelete={handleDeleteFeed}
-      />
+      {feedManagerView && (
+        <FeedManagerSheet
+          feeds={feeds}
+          unreadByFeed={unreadByFeed}
+          initialView={feedManagerView}
+          onCreate={handleAddFeed}
+          onUpdate={handleUpdateFeed}
+          onDelete={handleDeleteFeed}
+          onClose={() => setFeedManagerView(null)}
+        />
+      )}
     </div>
   );
 }
