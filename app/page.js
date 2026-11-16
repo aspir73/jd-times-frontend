@@ -111,6 +111,8 @@ export default function Home() {
     // 다음번 기간 변경 조회가 잘못 건너뛰어진다 — 실제로 바뀔 때만 세운다
     if (period !== DEFAULT_PERIOD) skipNextPeriodEffectRef.current = true;
     setPeriod(DEFAULT_PERIOD);
+    // 새로고침 후엔 아직 안 읽은 기사부터 보이도록 "읽지 않음" 탭으로 전환
+    setActiveFilter('UNREAD');
     loadData(true, DEFAULT_PERIOD);
   }, [loadData, period]);
 
