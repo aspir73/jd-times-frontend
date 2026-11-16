@@ -25,6 +25,7 @@ import {
 } from '@/lib/api';
 
 const VIEW_MODE_KEY = 'jdtimes:viewMode';
+const DEFAULT_FILTER = 'UNREAD'; // 기본 탭: 첫 진입 & "전체 새로고침" 시
 const DEFAULT_PERIOD = '12'; // 기본 표시 기간: 오늘(12시간) — 첫 로드 & "전체 새로고침" 시 이 값으로
 
 function flattenArticles(cluster) {
@@ -44,7 +45,8 @@ export default function Home() {
 
   const [selected, setSelected] = useState({ type: 'all' });
   const [pageMode, setPageMode] = useState('browse'); // 'browse' | 'today'
-  const [activeFilter, setActiveFilter] = useState('ALL');
+  // 처음 진입할 때도, "전체 새로고침" 후에도 안 읽은 기사부터 보이도록 기본 탭은 "읽지 않음"
+  const [activeFilter, setActiveFilter] = useState(DEFAULT_FILTER);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const [query, setQuery] = useState('');
@@ -111,8 +113,7 @@ export default function Home() {
     // 다음번 기간 변경 조회가 잘못 건너뛰어진다 — 실제로 바뀔 때만 세운다
     if (period !== DEFAULT_PERIOD) skipNextPeriodEffectRef.current = true;
     setPeriod(DEFAULT_PERIOD);
-    // 새로고침 후엔 아직 안 읽은 기사부터 보이도록 "읽지 않음" 탭으로 전환
-    setActiveFilter('UNREAD');
+    setActiveFilter(DEFAULT_FILTER);
     loadData(true, DEFAULT_PERIOD);
   }, [loadData, period]);
 
